@@ -1,0 +1,6 @@
+service lieppos_touchscreen_grabber /system/bin/lieppos-touchscreen-grabber
+    user root
+    group root input
+    seclabel u:r:phhsu_daemon:s0
+    disabled
+    oneshot

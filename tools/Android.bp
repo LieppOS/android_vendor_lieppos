@@ -1,0 +1,23 @@
+sh_binary {
+    name: "toggle_touchscreen.sh",
+    src: "toggle_touchscreen.sh",
+    vendor: false,
+}
+
+sh_binary {
+    name: "lieppos-microg-location-defaults.sh",
+    src: "lieppos-microg-location-defaults.sh",
+    vendor: false,
+    init_rc: ["lieppos-microg-location-defaults.rc"],
+}
+
+cc_binary {
+    name: "lieppos-touchscreen-grabber",
+    srcs: [
+        "lieppos-touchscreen-grabber.cpp",
+    ],
+    init_rc: [
+        "lieppos-touchscreen-grabber.rc",
+    ],
+    vendor: false,
+}
