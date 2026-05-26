@@ -1,0 +1,5 @@
+# docs is a separate repo: git@github.com:LieppOS/docs.git
+docs/
+*.orig
+*.rej
+.log
