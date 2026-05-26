@@ -1,0 +1,298 @@
+From a35427ef0817b8cfcc31e0541dde1ad215f01f77 Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Tue, 28 Apr 2026 19:01:05 +0300
+Subject: [PATCH] Native LieppOS homepage entries for Settings
+
+Change-Id: I291e0b7229897d07938f0bdb8eed0e879e6593c3
+---
+ res/drawable/ic_homepage_nfc_cards.xml        | 18 ++++++++++
+ res/drawable/ic_homepage_seklysmorka.xml      | 18 ++++++++++
+ res/drawable/ic_homepage_tinyscreen.xml       | 18 ++++++++++
+ res/drawable/ic_nfc_cards_expressive.xml      |  6 ++++
+ res/drawable/ic_sms_expressive.xml            |  6 ++++
+ res/drawable/ic_tinyscreen_expressive.xml     |  6 ++++
+ res/values/strings.xml                        |  8 +++++
+ res/xml/top_level_settings.xml                | 35 ++++++++++++++++++-
+ res/xml/top_level_settings_expressive.xml     | 34 +++++++++++++++++-
+ .../settings/homepage/TopLevelSettings.java   | 20 +++++++++++
+ 10 files changed, 167 insertions(+), 2 deletions(-)
+ create mode 100644 res/drawable/ic_homepage_nfc_cards.xml
+ create mode 100644 res/drawable/ic_homepage_seklysmorka.xml
+ create mode 100644 res/drawable/ic_homepage_tinyscreen.xml
+ create mode 100644 res/drawable/ic_nfc_cards_expressive.xml
+ create mode 100644 res/drawable/ic_sms_expressive.xml
+ create mode 100644 res/drawable/ic_tinyscreen_expressive.xml
+
+diff --git a/res/drawable/ic_homepage_nfc_cards.xml b/res/drawable/ic_homepage_nfc_cards.xml
+new file mode 100644
+index 00000000000..585b0d1ad2f
+--- /dev/null
++++ b/res/drawable/ic_homepage_nfc_cards.xml
+@@ -0,0 +1,18 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The Android Open Source Project -->
++<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <item>
++        <com.android.settingslib.widget.AdaptiveIconShapeDrawable
++            android:width="@dimen/dashboard_tile_image_size"
++            android:height="@dimen/dashboard_tile_image_size"
++            android:color="@color/homepage_support_background" />
++    </item>
++
++    <item
++        android:width="@dimen/dashboard_tile_foreground_image_size"
++        android:height="@dimen/dashboard_tile_foreground_image_size"
++        android:start="@dimen/dashboard_tile_foreground_image_inset"
++        android:top="@dimen/dashboard_tile_foreground_image_inset"
++        android:drawable="@drawable/ic_nfc_cards_expressive" />
++</layer-list>
+diff --git a/res/drawable/ic_homepage_seklysmorka.xml b/res/drawable/ic_homepage_seklysmorka.xml
+new file mode 100644
+index 00000000000..5a9d75eb795
+--- /dev/null
++++ b/res/drawable/ic_homepage_seklysmorka.xml
+@@ -0,0 +1,18 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The Android Open Source Project -->
++<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <item>
++        <com.android.settingslib.widget.AdaptiveIconShapeDrawable
++            android:width="@dimen/dashboard_tile_image_size"
++            android:height="@dimen/dashboard_tile_image_size"
++            android:color="@color/homepage_support_background" />
++    </item>
++
++    <item
++        android:width="@dimen/dashboard_tile_foreground_image_size"
++        android:height="@dimen/dashboard_tile_foreground_image_size"
++        android:start="@dimen/dashboard_tile_foreground_image_inset"
++        android:top="@dimen/dashboard_tile_foreground_image_inset"
++        android:drawable="@drawable/ic_sms_expressive" />
++</layer-list>
+diff --git a/res/drawable/ic_homepage_tinyscreen.xml b/res/drawable/ic_homepage_tinyscreen.xml
+new file mode 100644
+index 00000000000..bddde8d0629
+--- /dev/null
++++ b/res/drawable/ic_homepage_tinyscreen.xml
+@@ -0,0 +1,18 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The Android Open Source Project -->
++<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
++
++    <item>
++        <com.android.settingslib.widget.AdaptiveIconShapeDrawable
++            android:width="@dimen/dashboard_tile_image_size"
++            android:height="@dimen/dashboard_tile_image_size"
++            android:color="@color/homepage_support_background" />
++    </item>
++
++    <item
++        android:width="@dimen/dashboard_tile_foreground_image_size"
++        android:height="@dimen/dashboard_tile_foreground_image_size"
++        android:start="@dimen/dashboard_tile_foreground_image_inset"
++        android:top="@dimen/dashboard_tile_foreground_image_inset"
++        android:drawable="@drawable/ic_tinyscreen_expressive" />
++</layer-list>
+diff --git a/res/drawable/ic_nfc_cards_expressive.xml b/res/drawable/ic_nfc_cards_expressive.xml
+new file mode 100644
+index 00000000000..c4bb516538e
+--- /dev/null
++++ b/res/drawable/ic_nfc_cards_expressive.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The Android Open Source Project -->
++<com.android.settings.widget.TintDrawable
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:drawable="@drawable/ic_nfc"
++    android:tint="@color/homepage_support_foreground" />
+diff --git a/res/drawable/ic_sms_expressive.xml b/res/drawable/ic_sms_expressive.xml
+new file mode 100644
+index 00000000000..f0f1009107f
+--- /dev/null
++++ b/res/drawable/ic_sms_expressive.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The Android Open Source Project -->
++<com.android.settings.widget.TintDrawable
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:drawable="@drawable/ic_sms"
++    android:tint="@color/homepage_support_foreground" />
+diff --git a/res/drawable/ic_tinyscreen_expressive.xml b/res/drawable/ic_tinyscreen_expressive.xml
+new file mode 100644
+index 00000000000..33fd72abaf0
+--- /dev/null
++++ b/res/drawable/ic_tinyscreen_expressive.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Copyright (C) 2026 The Android Open Source Project -->
++<com.android.settings.widget.TintDrawable
++    xmlns:android="http://schemas.android.com/apk/res/android"
++    android:drawable="@drawable/ic_settings_display_filled"
++    android:tint="@color/homepage_support_foreground" />
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index e2c057eb9b7..f8efeff825f 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -14953,4 +14953,12 @@
+     <string name="safety_center_device_finder_search_terms"></string>
+     <!-- Safety Center system component update search terms [CHAR LIMIT=NONE] -->
+     <string name="safety_center_system_component_update_search_terms"></string>
++
++    <!-- LieppOS top-level settings entries. -->
++    <string name="seklysmorka_settings_title" translatable="false">SeklysMorka</string>
++    <string name="seklysmorka_settings_summary">SMS remote control - locate, ring, lock, wipe</string>
++    <string name="tinyscreen_settings_title" translatable="false">TinyScreen</string>
++    <string name="tinyscreen_settings_summary">Rear sub-screen display</string>
++    <string name="nfc_cards_settings_title">NFC Cards</string>
++    <string name="nfc_cards_settings_summary">Capture and clone NFC cards via ESP32 reader</string>
+ </resources>
+diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
+index 975a97a3aa4..61f6681f5ab 100644
+--- a/res/xml/top_level_settings.xml
++++ b/res/xml/top_level_settings.xml
+@@ -254,6 +254,39 @@
+             settings:highlightableMenuKey="@string/menu_key_accessibility"
+             settings:controller="com.android.settings.accessibility.TopLevelAccessibilityPreferenceController"/>
+ 
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_sms"
++            android:key="top_level_seklysmorka"
++            android:order="-17"
++            android:title="@string/seklysmorka_settings_title"
++            android:summary="@string/seklysmorka_settings_summary">
++            <intent
++                android:targetPackage="com.seklysmorka.remote"
++                android:targetClass="com.seklysmorka.remote.ui.SettingsActivity"/>
++        </com.android.settings.widget.HomepagePreference>
++
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_settings_display_filled"
++            android:key="top_level_tinyscreen"
++            android:order="-16"
++            android:title="@string/tinyscreen_settings_title"
++            android:summary="@string/tinyscreen_settings_summary">
++            <intent
++                android:targetPackage="com.tinyscreen"
++                android:targetClass="com.tinyscreen.TinyScreenSettingsActivity"/>
++        </com.android.settings.widget.HomepagePreference>
++
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_nfc"
++            android:key="top_level_nfc_cards"
++            android:order="-15"
++            android:title="@string/nfc_cards_settings_title"
++            android:summary="@string/nfc_cards_settings_summary">
++            <intent
++                android:targetPackage="lt.devsecops.androidnfc"
++                android:targetClass="lt.devsecops.androidnfc.ui.SettingsActivity"/>
++        </com.android.settings.widget.HomepagePreference>
++
+         <com.android.settings.widget.HomepagePreference
+             android:icon="@drawable/ic_help_filled"
+             android:key="top_level_support"
+@@ -264,4 +297,4 @@
+             settings:controller="com.android.settings.support.SupportPreferenceController"/>
+     </PreferenceCategory>
+ 
+-</PreferenceScreen>
+\ No newline at end of file
++</PreferenceScreen>
+diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
+index 73e1a82303c..37980aef6b1 100644
+--- a/res/xml/top_level_settings_expressive.xml
++++ b/res/xml/top_level_settings_expressive.xml
+@@ -250,6 +250,39 @@
+             settings:highlightableMenuKey="@string/menu_key_accessibility"
+             settings:controller="com.android.settings.accessibility.TopLevelAccessibilityPreferenceController"/>
+ 
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_homepage_seklysmorka"
++            android:key="top_level_seklysmorka"
++            android:order="-17"
++            android:title="@string/seklysmorka_settings_title"
++            android:summary="@string/seklysmorka_settings_summary">
++            <intent
++                android:targetPackage="com.seklysmorka.remote"
++                android:targetClass="com.seklysmorka.remote.ui.SettingsActivity"/>
++        </com.android.settings.widget.HomepagePreference>
++
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_homepage_tinyscreen"
++            android:key="top_level_tinyscreen"
++            android:order="-16"
++            android:title="@string/tinyscreen_settings_title"
++            android:summary="@string/tinyscreen_settings_summary">
++            <intent
++                android:targetPackage="com.tinyscreen"
++                android:targetClass="com.tinyscreen.TinyScreenSettingsActivity"/>
++        </com.android.settings.widget.HomepagePreference>
++
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_homepage_nfc_cards"
++            android:key="top_level_nfc_cards"
++            android:order="-15"
++            android:title="@string/nfc_cards_settings_title"
++            android:summary="@string/nfc_cards_settings_summary">
++            <intent
++                android:targetPackage="lt.devsecops.androidnfc"
++                android:targetClass="lt.devsecops.androidnfc.ui.SettingsActivity"/>
++        </com.android.settings.widget.HomepagePreference>
++
+         <com.android.settings.widget.HomepagePreference
+             android:icon="@drawable/ic_homepage_support"
+             android:key="top_level_support"
+@@ -260,4 +293,3 @@
+             settings:controller="com.android.settings.support.SupportPreferenceController"/>
+     </com.android.settingslib.widget.UntitledPreferenceCategory>
+ </PreferenceScreen>
+-
+diff --git a/src/com/android/settings/homepage/TopLevelSettings.java b/src/com/android/settings/homepage/TopLevelSettings.java
+index fedc05e9fef..3d3dc1d0c75 100644
+--- a/src/com/android/settings/homepage/TopLevelSettings.java
++++ b/src/com/android/settings/homepage/TopLevelSettings.java
+@@ -21,6 +21,7 @@ import static com.android.settingslib.search.SearchIndexable.MOBILE;
+ 
+ import android.app.ActivityManager;
+ import android.app.settings.SettingsEnums;
++import android.content.ComponentName;
+ import android.content.Context;
+ import android.content.res.Configuration;
+ import android.os.Bundle;
+@@ -67,6 +68,12 @@ public class TopLevelSettings extends DashboardFragment implements SplitLayoutLi
+     private static final String TAG = "TopLevelSettings";
+     private static final String SAVED_HIGHLIGHT_MIXIN = "highlight_mixin";
+     private static final String PREF_KEY_SUPPORT = "top_level_support";
++    private static final ComponentName SEKLYSMORKA_SETTINGS = new ComponentName(
++            "com.seklysmorka.remote", "com.seklysmorka.remote.ui.SettingsActivity");
++    private static final ComponentName TINYSCREEN_SETTINGS = new ComponentName(
++            "com.tinyscreen", "com.tinyscreen.TinyScreenSettingsActivity");
++    private static final ComponentName NFC_CARDS_SETTINGS = new ComponentName(
++            "lt.devsecops.androidnfc", "lt.devsecops.androidnfc.ui.SettingsActivity");
+ 
+     private boolean mIsEmbeddingActivityEnabled;
+     private TopLevelHighlightMixin mHighlightMixin;
+@@ -319,6 +326,19 @@ public class TopLevelSettings extends DashboardFragment implements SplitLayoutLi
+         return new HomepagePreference(getPrefContext());
+     }
+ 
++    @Override
++    protected boolean displayTile(Tile tile) {
++        if (tile != null && tile.getIntent() != null) {
++            final ComponentName component = tile.getIntent().getComponent();
++            if (SEKLYSMORKA_SETTINGS.equals(component)
++                    || TINYSCREEN_SETTINGS.equals(component)
++                    || NFC_CARDS_SETTINGS.equals(component)) {
++                return false;
++            }
++        }
++        return super.displayTile(tile);
++    }
++
+     void reloadHighlightMenuKey() {
+         if (mHighlightMixin != null) {
+             mHighlightMixin.reloadHighlightMenuKey(getArguments());
+-- 
+2.50.1
+

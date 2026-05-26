@@ -1,0 +1,368 @@
+From 05849ab75ebd960320a9699158e4fc5a7779287a Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Sun, 24 May 2026 15:00:09 +0300
+Subject: [PATCH] LieppOS uncommitted WIP: packages/apps/Settings
+
+Change-Id: I75efed42d9acc8e58eec44e7e313eddb555133e1
+---
+ res/drawable/ic_homepage_lieppos.xml          | 10 +++
+ res/values/strings.xml                        | 69 +++++++++++++++++++
+ res/xml/configure_notification_settings.xml   |  2 +-
+ res/xml/emergency_settings.xml                |  2 +-
+ res/xml/power_usage_summary.xml               |  4 +-
+ res/xml/top_level_settings.xml                | 17 +++++
+ res/xml/top_level_settings_expressive.xml     | 16 +++++
+ .../connecteddevice/usb/UsbBackend.java       |  8 +++
+ ...BatteryPercentagePreferenceController.java | 18 +++--
+ .../BatteryPercentageSwitchPreference.kt      | 39 +++++++++++
+ 10 files changed, 176 insertions(+), 9 deletions(-)
+ create mode 100644 res/drawable/ic_homepage_lieppos.xml
+
+diff --git a/res/drawable/ic_homepage_lieppos.xml b/res/drawable/ic_homepage_lieppos.xml
+new file mode 100644
+index 00000000000..df96cb9216a
+--- /dev/null
++++ b/res/drawable/ic_homepage_lieppos.xml
+@@ -0,0 +1,10 @@
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24"
++    android:tint="?android:attr/colorControlNormal">
++    <path
++        android:fillColor="@android:color/white"
++        android:pathData="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22l1,-2.3c0.5,0.25 1.09,0.4 1.78,0.4 1.84,0 3.41,-1.04 4.18,-2.55C16.96,17.55 19,15.21 19,11.5 19,9.92 18.61,8.39 17.92,7.13c-0.42,-0.81 -0.92,-1.55 -1.42,-2.13C16,5 14,4 11,5c1,2 2.4,3 3.4,4 1.04,1.05 1.6,2.5 1.6,4 0,3 -2,5 -5,5 -1,0 -2,-0.4 -2.7,-1.1 1.18,-1.96 2.78,-3.59 4.7,-4.9C13.62,11 16.83,9.7 17,8z"/>
++</vector>
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index 167aae709c8..bf390d44fa7 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -13,6 +13,75 @@
+      limitations under the License.
+ -->
+ <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
++    <!-- LieppOS -->
++    <string name="lieppos_title">LieppOS</string>
++    <string name="lieppos_summary">Customizations</string>
++    <string name="cat_mediatek_title">Mediatek specific patches</string>
++    <string name="cat_mediatek_summary">Tweaks required for this MediaTek phone</string>
++    <string name="mediatek_placeholder_summary">No options yet — toggles will be added here.</string>
++    <string name="cat_lockscreen_title">Lock screen</string>
++    <string name="cat_lockscreen_summary">Widgets, gestures</string>
++    <string name="cat_power_title">Power menu</string>
++    <string name="cat_power_summary">Reboot options, restart SystemUI</string>
++    <string name="cat_display_title">Display</string>
++    <string name="cat_display_summary">Refresh rate and smooth display</string>
++    <string name="cat_battery_title">Battery &amp; Charging</string>
++    <string name="cat_battery_summary">Charging control, battery style</string>
++    <string name="cat_notif_title">Notifications</string>
++    <string name="cat_notif_summary">Heads-up, headsup blacklist</string>
++    <string name="cat_gestures_title">Gestures</string>
++    <string name="cat_gestures_summary">Three-finger screenshot, volume skip</string>
++    <string name="cat_misc_title">Misc</string>
++    <string name="cat_misc_summary">Other tweaks</string>
++    <string name="power_advanced_reboot_title">Advanced reboot menu</string>
++    <string name="power_advanced_reboot_summary">Show recovery, bootloader, fastbootd, SystemUI</string>
++    <string name="power_restart_systemui_title">Restart SystemUI entry</string>
++    <string name="power_restart_systemui_summary">Add a Restart SystemUI option to power menu</string>
++    <string name="smooth_display_title">Smooth Display</string>
++    <string name="smooth_display_summary">Dynamic refresh rate with idle drop</string>
++    <string name="smooth_display_enable_title">Use Smooth Display</string>
++    <string name="smooth_display_enable_summary">Run at peak Hz when interactive, drop to idle Hz after timeout</string>
++    <string name="smooth_display_peak_title">Peak refresh rate (Hz)</string>
++    <string name="smooth_display_idle_title">Idle refresh rate (Hz)</string>
++    <string name="smooth_display_timeout_title">Idle timeout (seconds)</string>
++    <string name="smooth_display_timeout_summary">Seconds of inactivity before dropping to idle Hz</string>
++    <string name="smooth_display_footer">Idle Hz is clamped to the lowest panel-supported mode. Going below the panel\'s declared minimum is not safe; this device cannot drop below the lowest HWC-reported mode.</string>
++    <string name="battery_charging_control_title">Charging control</string>
++    <string name="battery_charging_control_summary">Limit charge, schedule top-off</string>
++    <string name="gesture_three_finger_screenshot_title">Three-finger screenshot</string>
++    <string name="gesture_three_finger_screenshot_summary">Swipe down with three fingers</string>
++    <string name="gesture_volume_skip_title">Volume long-press skip</string>
++    <string name="gesture_volume_skip_summary">Hold Vol+/- to skip music tracks</string>
++    <string name="qs_quick_columns_title">Quick QS columns</string>
++    <string name="qs_quick_rows_title">Quick QS rows</string>
++    <string name="qs_full_columns_title">Full QS columns</string>
++    <string name="qs_full_rows_title">Full QS rows</string>
++    <string name="qs_tile_height_title">QS tile height</string>
++    <string name="sb_clock_title">Status bar &amp; clock</string>
++    <string name="sb_clock_summary">Clock position, icons, network</string>
++    <string name="ls_aosp_title">Lock screen settings</string>
++    <string name="ls_aosp_summary">Notifications, widgets, what to show</string>
++    <string name="ls_gestures_title">Touchscreen gestures</string>
++    <string name="ls_gestures_summary">Wake, double-tap, custom gestures</string>
++    <string name="power_lineage_title">Power menu actions</string>
++    <string name="power_lineage_summary">Items shown in long-press power dialog</string>
++    <string name="notif_aosp_title">Notification settings</string>
++    <string name="notif_aosp_summary">App notifications, history, channels</string>
++    <string name="notif_lights_title">Notification light</string>
++    <string name="notif_lights_summary">Per-app LED color and pattern</string>
++    <string name="notif_charging_sound_title">Charging sounds</string>
++    <string name="notif_charging_sound_summary">Sound on plug/unplug</string>
++    <string name="misc_smart5g_title">Smart 5G</string>
++    <string name="misc_smart5g_summary">Drop to 4G when battery low or screen off</string>
++    <string name="misc_vibration_pattern_title">Custom vibration patterns</string>
++    <string name="misc_vibration_pattern_summary">User-defined vibration for notifications and calls</string>
++    <string name="misc_recents_clear_all_title">Recents Clear All button</string>
++    <string name="misc_recents_clear_all_summary">Show Clear All button in recents overview</string>
++    <string name="misc_per_app_refresh_title">Per-app refresh rate</string>
++    <string name="misc_per_app_refresh_empty_summary">Choose refresh rate overrides for installed apps</string>
++    <string name="misc_per_app_refresh_default">Default</string>
++    <string name="misc_per_app_refresh_rate_hz">%1$d Hz</string>
++
+     <!-- Strings for Dialog yes button -->
+     <string name="yes">"Yes"</string>
+     <!-- Strings for Dialog no button -->
+diff --git a/res/xml/configure_notification_settings.xml b/res/xml/configure_notification_settings.xml
+index a9bc5419bdf..8a0f80121ab 100644
+--- a/res/xml/configure_notification_settings.xml
++++ b/res/xml/configure_notification_settings.xml
+@@ -182,7 +182,7 @@
+             settings:useAdminDisabledSummary="true">
+             <intent
+                 android:action="android.intent.action.MAIN"
+-                android:targetPackage="@string/config_cell_broadcast_receiver_package"
++                android:targetPackage="com.android.cellbroadcastreceiver.module"
+                 android:targetClass="com.android.cellbroadcastreceiver.CellBroadcastSettings"/>
+         </com.android.settingslib.RestrictedPreference>
+ 
+diff --git a/res/xml/emergency_settings.xml b/res/xml/emergency_settings.xml
+index 453a88598d1..9b1027d148e 100644
+--- a/res/xml/emergency_settings.xml
++++ b/res/xml/emergency_settings.xml
+@@ -43,7 +43,7 @@
+         settings:useAdminDisabledSummary="true">
+         <intent
+             android:action="android.intent.action.MAIN"
+-            android:targetPackage="@string/config_cell_broadcast_receiver_package"
++            android:targetPackage="com.android.cellbroadcastreceiver.module"
+             android:targetClass="com.android.cellbroadcastreceiver.CellBroadcastSettings"/>
+     </com.android.settingslib.RestrictedPreference>
+ </PreferenceScreen>
+diff --git a/res/xml/power_usage_summary.xml b/res/xml/power_usage_summary.xml
+index 950ca2de9e9..ef4765eb60b 100644
+--- a/res/xml/power_usage_summary.xml
++++ b/res/xml/power_usage_summary.xml
+@@ -77,9 +77,7 @@
+     <com.android.settingslib.widget.UntitledPreferenceCategory
+         android:key="charging_category">
+         <!-- Charging control -->
+-        <lineageos.preference.LineagePartsPreference
+-            android:key="charging_control"
+-            settings:requiresService="lineagehealth" />
++        <!-- Charging control moved to Settings -> LieppOS -> Battery & Charging -->
+ 
+         <!-- Charging speed -->
+         <ListPreference
+diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
+index 084393e7f27..fffb22d5bdf 100644
+--- a/res/xml/top_level_settings.xml
++++ b/res/xml/top_level_settings.xml
+@@ -26,6 +26,23 @@
+         android:layout="@layout/settingslib_untitled_preference_category">
+     </PreferenceCategory>
+ 
++    <PreferenceCategory
++        android:order="-135"
++        android:key="top_level_lieppos_dashboard_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_homepage_lieppos"
++            android:key="top_level_lieppos"
++            android:order="-30"
++            android:title="@string/lieppos_title"
++            android:summary="@string/lieppos_summary">
++            <intent
++                android:action="com.lieppos.settings.LIEPPOS_SETTINGS"
++                android:targetPackage="com.lieppos.settings"
++                android:targetClass="com.lieppos.settings.LieppOSDashboardActivity" />
++        </com.android.settings.widget.HomepagePreference>
++    </PreferenceCategory>
++
+     <PreferenceCategory
+         android:order="-130"
+         android:key="top_level_connectivity_category"
+diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
+index f076e20aee0..f9aec50d89c 100644
+--- a/res/xml/top_level_settings_expressive.xml
++++ b/res/xml/top_level_settings_expressive.xml
+@@ -20,6 +20,22 @@
+     xmlns:settings="http://schemas.android.com/apk/res-auto"
+     android:key="top_level_settings">
+ 
++    <com.android.settingslib.widget.UntitledPreferenceCategory
++        android:order="-135"
++        android:key="top_level_lieppos_dashboard_category">
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_homepage_lieppos"
++            android:key="top_level_lieppos"
++            android:order="-30"
++            android:title="@string/lieppos_title"
++            android:summary="@string/lieppos_summary">
++            <intent
++                android:action="com.lieppos.settings.LIEPPOS_SETTINGS"
++                android:targetPackage="com.lieppos.settings"
++                android:targetClass="com.lieppos.settings.LieppOSDashboardActivity" />
++        </com.android.settings.widget.HomepagePreference>
++    </com.android.settingslib.widget.UntitledPreferenceCategory>
++
+     <com.android.settingslib.widget.UntitledPreferenceCategory
+         android:order="-130"
+         android:key="top_level_connectivity_category">
+diff --git a/src/com/android/settings/connecteddevice/usb/UsbBackend.java b/src/com/android/settings/connecteddevice/usb/UsbBackend.java
+index b1df804d3b3..4091acb2e01 100644
+--- a/src/com/android/settings/connecteddevice/usb/UsbBackend.java
++++ b/src/com/android/settings/connecteddevice/usb/UsbBackend.java
+@@ -30,6 +30,7 @@ import android.hardware.usb.UsbPortStatus;
+ import android.net.TetheringManager;
+ import android.os.UserHandle;
+ import android.os.UserManager;
++import android.provider.Settings;
+ 
+ import androidx.annotation.Nullable;
+ import androidx.annotation.VisibleForTesting;
+@@ -53,6 +54,7 @@ public class UsbBackend {
+     private final boolean mTetheringSupported;
+     private final boolean mUVCEnabled;
+     private final boolean mIsAdminUser;
++    private final Context mContext;
+ 
+     private UsbManager mUsbManager;
+ 
+@@ -67,6 +69,7 @@ public class UsbBackend {
+ 
+     @VisibleForTesting
+     public UsbBackend(Context context, UserManager userManager) {
++        mContext = context;
+         mUsbManager = context.getSystemService(UsbManager.class);
+ 
+         mFileTransferRestrictedBySystem = isUsbFileTransferRestrictedBySystem(userManager);
+@@ -85,6 +88,11 @@ public class UsbBackend {
+     }
+ 
+     public void setCurrentFunctions(long functions) {
++        // Do NOT OR in FUNCTION_ADB here: UsbManager.setCurrentFunctions only
++        // accepts SETTABLE_FUNCTIONS (which excludes ADB) and requires a single
++        // bit, so passing mtp|adb throws IllegalArgumentException in UsbService.
++        // ADB is preserved automatically by UsbDeviceManager (it ORs
++        // FUNCTION_ADB internally when adb is enabled).
+         mUsbManager.setCurrentFunctions(functions);
+     }
+ 
+diff --git a/src/com/android/settings/display/BatteryPercentagePreferenceController.java b/src/com/android/settings/display/BatteryPercentagePreferenceController.java
+index b859c78af5f..0e481e945f0 100644
+--- a/src/com/android/settings/display/BatteryPercentagePreferenceController.java
++++ b/src/com/android/settings/display/BatteryPercentagePreferenceController.java
+@@ -31,6 +31,8 @@ import com.android.settings.core.BasePreferenceController;
+ import com.android.settings.core.PreferenceControllerMixin;
+ import com.android.settings.overlay.FeatureFactory;
+ 
++import lineageos.providers.LineageSettings;
++
+ /**
+  * A controller to manage the switch for showing battery percentage in the status bar.
+  */
+@@ -39,6 +41,9 @@ import com.android.settings.overlay.FeatureFactory;
+ public class BatteryPercentagePreferenceController extends BasePreferenceController implements
+         PreferenceControllerMixin, Preference.OnPreferenceChangeListener {
+ 
++    private static final int LINEAGE_BATTERY_PERCENT_HIDDEN = 0;
++    private static final int LINEAGE_BATTERY_PERCENT_NEXT_TO_ICON = 2;
++
+     private Preference mPreference;
+ 
+     public BatteryPercentagePreferenceController(Context context, String preferenceKey) {
+@@ -67,12 +72,13 @@ public class BatteryPercentagePreferenceController extends BasePreferenceControl
+ 
+     @Override
+     public void updateState(Preference preference) {
+-        int setting = Settings.System.getInt(mContext.getContentResolver(),
+-                SHOW_BATTERY_PERCENT,
++        int setting = LineageSettings.System.getInt(mContext.getContentResolver(),
++                LineageSettings.System.STATUS_BAR_SHOW_BATTERY_PERCENT,
+                 mContext.getResources().getBoolean(
+-                        R.bool.config_defaultBatteryPercentageSetting) ? 1 : 0);
++                        R.bool.config_defaultBatteryPercentageSetting)
++                        ? LINEAGE_BATTERY_PERCENT_NEXT_TO_ICON : LINEAGE_BATTERY_PERCENT_HIDDEN);
+ 
+-        ((TwoStatePreference) preference).setChecked(setting == 1);
++        ((TwoStatePreference) preference).setChecked(setting != LINEAGE_BATTERY_PERCENT_HIDDEN);
+     }
+ 
+     @Override
+@@ -80,6 +86,10 @@ public class BatteryPercentagePreferenceController extends BasePreferenceControl
+         boolean showPercentage = (Boolean) newValue;
+         Settings.System.putInt(mContext.getContentResolver(), SHOW_BATTERY_PERCENT,
+                 showPercentage ? 1 : 0);
++        LineageSettings.System.putInt(mContext.getContentResolver(),
++                LineageSettings.System.STATUS_BAR_SHOW_BATTERY_PERCENT,
++                showPercentage ? LINEAGE_BATTERY_PERCENT_NEXT_TO_ICON
++                        : LINEAGE_BATTERY_PERCENT_HIDDEN);
+         FeatureFactory.getFeatureFactory().getMetricsFeatureProvider()
+                 .action(mContext, SettingsEnums.OPEN_BATTERY_PERCENTAGE, showPercentage);
+         return true;
+diff --git a/src/com/android/settings/display/BatteryPercentageSwitchPreference.kt b/src/com/android/settings/display/BatteryPercentageSwitchPreference.kt
+index 26d1c946d02..6d14e13f6ea 100644
+--- a/src/com/android/settings/display/BatteryPercentageSwitchPreference.kt
++++ b/src/com/android/settings/display/BatteryPercentageSwitchPreference.kt
+@@ -29,6 +29,7 @@ import com.android.settingslib.metadata.PreferenceAvailabilityProvider
+ import com.android.settingslib.metadata.ReadWritePermit
+ import com.android.settingslib.metadata.SensitivityLevel
+ import com.android.settingslib.metadata.SwitchPreference
++import lineageos.providers.LineageSettings
+ 
+ // LINT.IfChange
+ class BatteryPercentageSwitchPreference :
+@@ -80,10 +81,48 @@ class BatteryPercentageSwitchPreference :
+             context.resources.getBoolean(
+                 com.android.internal.R.bool.config_defaultBatteryPercentageSetting
+             ) as T
++
++        override fun <T : Any> getValue(key: String, valueType: Class<T>): T? {
++            if (key == KEY && valueType == Boolean::class.javaObjectType) {
++                return (LineageSettings.System.getInt(
++                    context.contentResolver,
++                    LineageSettings.System.STATUS_BAR_SHOW_BATTERY_PERCENT,
++                    if (context.resources.getBoolean(
++                            com.android.internal.R.bool.config_defaultBatteryPercentageSetting
++                        )
++                    ) {
++                        LINEAGE_BATTERY_PERCENT_NEXT_TO_ICON
++                    } else {
++                        LINEAGE_BATTERY_PERCENT_HIDDEN
++                    },
++                ) != LINEAGE_BATTERY_PERCENT_HIDDEN) as T
++            }
++            return super.getValue(key, valueType)
++        }
++
++        override fun <T : Any> setValue(key: String, valueType: Class<T>, value: T?) {
++            if (key == KEY && valueType == Boolean::class.javaObjectType) {
++                val showPercentage = value as? Boolean ?: false
++                settingsStore.setValue(key, valueType, value)
++                LineageSettings.System.putInt(
++                    context.contentResolver,
++                    LineageSettings.System.STATUS_BAR_SHOW_BATTERY_PERCENT,
++                    if (showPercentage) {
++                        LINEAGE_BATTERY_PERCENT_NEXT_TO_ICON
++                    } else {
++                        LINEAGE_BATTERY_PERCENT_HIDDEN
++                    },
++                )
++                return
++            }
++            super.setValue(key, valueType, value)
++        }
+     }
+ 
+     companion object {
+         const val KEY = Settings.System.SHOW_BATTERY_PERCENT
++        private const val LINEAGE_BATTERY_PERCENT_HIDDEN = 0
++        private const val LINEAGE_BATTERY_PERCENT_NEXT_TO_ICON = 2
+     }
+ }
+ // LINT.ThenChange(BatteryPercentagePreferenceController.java)
+-- 
+2.54.0
+

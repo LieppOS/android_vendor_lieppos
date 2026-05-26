@@ -1,0 +1,191 @@
+From c0c85ec19009f7eaa29c12753938666a92050c30 Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Tue, 28 Apr 2026 20:10:10 +0300
+Subject: [PATCH] Group LieppOS homepage entries
+
+Change-Id: I28cf00be70e92503220d593e179f15f8b1226f46
+---
+ res/values/strings.xml                        |  2 ++
+ res/xml/top_level_settings.xml                | 35 ++++++++++++++-----
+ res/xml/top_level_settings_expressive.xml     | 35 ++++++++++++++-----
+ .../settings/homepage/TopLevelSettings.java   |  5 ++-
+ 4 files changed, 58 insertions(+), 19 deletions(-)
+
+diff --git a/res/values/strings.xml b/res/values/strings.xml
+index f8efeff825f..167aae709c8 100644
+--- a/res/values/strings.xml
++++ b/res/values/strings.xml
+@@ -14961,4 +14961,6 @@
+     <string name="tinyscreen_settings_summary">Rear sub-screen display</string>
+     <string name="nfc_cards_settings_title">NFC Cards</string>
+     <string name="nfc_cards_settings_summary">Capture and clone NFC cards via ESP32 reader</string>
++    <string name="treble_app_settings_title" translatable="false">TrebleDroid Settings</string>
++    <string name="treble_app_settings_summary">Device specific settings</string>
+ </resources>
+diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
+index 61f6681f5ab..084393e7f27 100644
+--- a/res/xml/top_level_settings.xml
++++ b/res/xml/top_level_settings.xml
+@@ -254,10 +254,25 @@
+             settings:highlightableMenuKey="@string/menu_key_accessibility"
+             settings:controller="com.android.settings.accessibility.TopLevelAccessibilityPreferenceController"/>
+ 
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_help_filled"
++            android:key="top_level_support"
++            android:order="-10"
++            android:title="@string/page_tab_title_support"
++            android:summary="@string/support_summary"
++            settings:highlightableMenuKey="@string/menu_key_support"
++            settings:controller="com.android.settings.support.SupportPreferenceController"/>
++    </PreferenceCategory>
++
++    <PreferenceCategory
++        android:order="110"
++        android:key="top_level_lieppos_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
++
+         <com.android.settings.widget.HomepagePreference
+             android:icon="@drawable/ic_sms"
+             android:key="top_level_seklysmorka"
+-            android:order="-17"
++            android:order="-40"
+             android:title="@string/seklysmorka_settings_title"
+             android:summary="@string/seklysmorka_settings_summary">
+             <intent
+@@ -268,7 +283,7 @@
+         <com.android.settings.widget.HomepagePreference
+             android:icon="@drawable/ic_settings_display_filled"
+             android:key="top_level_tinyscreen"
+-            android:order="-16"
++            android:order="-30"
+             android:title="@string/tinyscreen_settings_title"
+             android:summary="@string/tinyscreen_settings_summary">
+             <intent
+@@ -279,7 +294,7 @@
+         <com.android.settings.widget.HomepagePreference
+             android:icon="@drawable/ic_nfc"
+             android:key="top_level_nfc_cards"
+-            android:order="-15"
++            android:order="-20"
+             android:title="@string/nfc_cards_settings_title"
+             android:summary="@string/nfc_cards_settings_summary">
+             <intent
+@@ -288,13 +303,15 @@
+         </com.android.settings.widget.HomepagePreference>
+ 
+         <com.android.settings.widget.HomepagePreference
+-            android:icon="@drawable/ic_help_filled"
+-            android:key="top_level_support"
++            android:icon="@drawable/ic_settings_system_dashboard_filled"
++            android:key="top_level_treble_app"
+             android:order="-10"
+-            android:title="@string/page_tab_title_support"
+-            android:summary="@string/support_summary"
+-            settings:highlightableMenuKey="@string/menu_key_support"
+-            settings:controller="com.android.settings.support.SupportPreferenceController"/>
++            android:title="@string/treble_app_settings_title"
++            android:summary="@string/treble_app_settings_summary">
++            <intent
++                android:targetPackage="me.phh.treble.app"
++                android:targetClass="me.phh.treble.app.TopLevelSettingsActivity"/>
++        </com.android.settings.widget.HomepagePreference>
+     </PreferenceCategory>
+ 
+ </PreferenceScreen>
+diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
+index 37980aef6b1..f076e20aee0 100644
+--- a/res/xml/top_level_settings_expressive.xml
++++ b/res/xml/top_level_settings_expressive.xml
+@@ -250,10 +250,25 @@
+             settings:highlightableMenuKey="@string/menu_key_accessibility"
+             settings:controller="com.android.settings.accessibility.TopLevelAccessibilityPreferenceController"/>
+ 
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_homepage_support"
++            android:key="top_level_support"
++            android:order="-10"
++            android:title="@string/page_tab_title_support"
++            android:summary="@string/support_summary"
++            settings:highlightableMenuKey="@string/menu_key_support"
++            settings:controller="com.android.settings.support.SupportPreferenceController"/>
++    </com.android.settingslib.widget.UntitledPreferenceCategory>
++
++    <com.android.settingslib.widget.UntitledPreferenceCategory
++        android:order="110"
++        android:key="top_level_lieppos_category"
++        android:layout="@layout/settingslib_expressive_untitled_preference_category">
++
+         <com.android.settings.widget.HomepagePreference
+             android:icon="@drawable/ic_homepage_seklysmorka"
+             android:key="top_level_seklysmorka"
+-            android:order="-17"
++            android:order="-40"
+             android:title="@string/seklysmorka_settings_title"
+             android:summary="@string/seklysmorka_settings_summary">
+             <intent
+@@ -264,7 +279,7 @@
+         <com.android.settings.widget.HomepagePreference
+             android:icon="@drawable/ic_homepage_tinyscreen"
+             android:key="top_level_tinyscreen"
+-            android:order="-16"
++            android:order="-30"
+             android:title="@string/tinyscreen_settings_title"
+             android:summary="@string/tinyscreen_settings_summary">
+             <intent
+@@ -275,7 +290,7 @@
+         <com.android.settings.widget.HomepagePreference
+             android:icon="@drawable/ic_homepage_nfc_cards"
+             android:key="top_level_nfc_cards"
+-            android:order="-15"
++            android:order="-20"
+             android:title="@string/nfc_cards_settings_title"
+             android:summary="@string/nfc_cards_settings_summary">
+             <intent
+@@ -284,12 +299,14 @@
+         </com.android.settings.widget.HomepagePreference>
+ 
+         <com.android.settings.widget.HomepagePreference
+-            android:icon="@drawable/ic_homepage_support"
+-            android:key="top_level_support"
++            android:icon="@drawable/ic_homepage_system_dashboard"
++            android:key="top_level_treble_app"
+             android:order="-10"
+-            android:title="@string/page_tab_title_support"
+-            android:summary="@string/support_summary"
+-            settings:highlightableMenuKey="@string/menu_key_support"
+-            settings:controller="com.android.settings.support.SupportPreferenceController"/>
++            android:title="@string/treble_app_settings_title"
++            android:summary="@string/treble_app_settings_summary">
++            <intent
++                android:targetPackage="me.phh.treble.app"
++                android:targetClass="me.phh.treble.app.TopLevelSettingsActivity"/>
++        </com.android.settings.widget.HomepagePreference>
+     </com.android.settingslib.widget.UntitledPreferenceCategory>
+ </PreferenceScreen>
+diff --git a/src/com/android/settings/homepage/TopLevelSettings.java b/src/com/android/settings/homepage/TopLevelSettings.java
+index 3d3dc1d0c75..a96ced1a36b 100644
+--- a/src/com/android/settings/homepage/TopLevelSettings.java
++++ b/src/com/android/settings/homepage/TopLevelSettings.java
+@@ -74,6 +74,8 @@ public class TopLevelSettings extends DashboardFragment implements SplitLayoutLi
+             "com.tinyscreen", "com.tinyscreen.TinyScreenSettingsActivity");
+     private static final ComponentName NFC_CARDS_SETTINGS = new ComponentName(
+             "lt.devsecops.androidnfc", "lt.devsecops.androidnfc.ui.SettingsActivity");
++    private static final ComponentName TREBLE_APP_SETTINGS = new ComponentName(
++            "me.phh.treble.app", "me.phh.treble.app.TopLevelSettingsActivity");
+ 
+     private boolean mIsEmbeddingActivityEnabled;
+     private TopLevelHighlightMixin mHighlightMixin;
+@@ -332,7 +334,8 @@ public class TopLevelSettings extends DashboardFragment implements SplitLayoutLi
+             final ComponentName component = tile.getIntent().getComponent();
+             if (SEKLYSMORKA_SETTINGS.equals(component)
+                     || TINYSCREEN_SETTINGS.equals(component)
+-                    || NFC_CARDS_SETTINGS.equals(component)) {
++                    || NFC_CARDS_SETTINGS.equals(component)
++                    || TREBLE_APP_SETTINGS.equals(component)) {
+                 return false;
+             }
+         }
+-- 
+2.50.1
+
