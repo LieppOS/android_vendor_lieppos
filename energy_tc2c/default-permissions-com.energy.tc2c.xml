@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<exceptions>
+  <exception package="com.energy.tc2c">
+    <permission name="android.permission.CAMERA" fixed="true"/>
+    <permission name="android.permission.RECORD_AUDIO" fixed="true"/>
+
+    <!-- Legacy storage (older targets / older Android behavior) -->
+    <permission name="android.permission.READ_EXTERNAL_STORAGE" fixed="true"/>
+    <permission name="android.permission.WRITE_EXTERNAL_STORAGE" fixed="true"/>
+
+    <!-- If the app uses Android 13+ media perms, you can add these too -->
+    <permission name="android.permission.READ_MEDIA_IMAGES" fixed="true"/>
+    <permission name="android.permission.READ_MEDIA_VIDEO" fixed="true"/>
+    <permission name="android.permission.READ_MEDIA_AUDIO" fixed="true"/>
+  </exception>
+</exceptions>
+

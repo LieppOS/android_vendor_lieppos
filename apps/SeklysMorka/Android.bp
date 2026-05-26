@@ -1,0 +1,16 @@
+android_app_import {
+    name: "SeklysMorka",
+    apk: "SeklysMorka.apk",
+    privileged: true,
+    certificate: "platform",
+    dex_preopt: {
+        enabled: false,
+    },
+    required: ["privapp-permissions-seklysmorka.xml"],
+}
+
+prebuilt_etc {
+    name: "privapp-permissions-seklysmorka.xml",
+    src: "privapp-permissions-seklysmorka.xml",
+    sub_dir: "permissions",
+}

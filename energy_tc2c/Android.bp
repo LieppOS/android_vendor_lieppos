@@ -1,0 +1,8 @@
+android_app_import {
+    name: "M170infisens",
+    apk: "M170infisens.apk",
+    system_ext_specific: true,
+    privileged: false,
+    certificate: "platform",
+    dex_preopt: { enabled: false },
+}

@@ -1,0 +1,19 @@
+// Minimal sub-screen power saver. Source-built, platform-signed so it inherits
+// the same SELinux platform_app domain that lets it reach the tinylcd HIDL HAL
+// (no extra sepolicy needed). One BootReceiver powers the sub-screen off at boot.
+// Ships in the user flavors (Vanilla/Semi/Google's); mano keeps the full
+// TinyScreen renderer instead.
+android_app {
+    name: "TinyScreenService",
+    srcs: ["src/**/*.java"],
+    manifest: "AndroidManifest.xml",
+    platform_apis: true,
+    certificate: "platform",
+    privileged: true,
+    optimize: {
+        enabled: false,
+    },
+    dex_preopt: {
+        enabled: false,
+    },
+}
