@@ -1,0 +1,8 @@
+# RevampedFMRadio (com.android.fmradio) runs as android.uid.system so its
+# process lands in the system_app domain. libmtkfmjni opens /dev/fm
+# (vendor-labeled fm_device) directly via JNI. Grant system_app access.
+# fm_device is also declared in vendor sepolicy; redeclaring here matches
+# the device/phh/treble/sepolicy pattern (mtk_hal_audio, proc_ged, ...).
+type fm_device;
+
+allow system_app fm_device:chr_file rw_file_perms;

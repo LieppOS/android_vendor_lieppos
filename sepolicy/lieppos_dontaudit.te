@@ -1,0 +1,6 @@
+dontaudit hal_fingerprint_oppo_compat default_android_hwservice:hwservice_manager find;
+dontaudit surfaceflinger default_android_hwservice:hwservice_manager find;
+dontaudit system_app default_android_hwservice:hwservice_manager find;
+dontaudit system_app default_android_service:service_manager find;
+dontaudit priv_app default_android_service:service_manager find;
+dontaudit system_server default_android_service:service_manager find;

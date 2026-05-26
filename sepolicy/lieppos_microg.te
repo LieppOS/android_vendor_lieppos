@@ -1,0 +1,27 @@
+type lieppos_microg, domain, coredomain;
+type lieppos_microg_exec, system_file_type, exec_type, file_type;
+
+init_daemon_domain(lieppos_microg)
+
+allow lieppos_microg shell_exec:file rx_file_perms;
+allow lieppos_microg toolbox_exec:file rx_file_perms;
+allow lieppos_microg system_file:file rx_file_perms;
+allow lieppos_microg system_file:dir r_dir_perms;
+
+allow lieppos_microg self:capability { dac_override dac_read_search chown fowner fsetid };
+
+allow lieppos_microg system_data_file:dir search;
+allow lieppos_microg system_data_root_file:dir search;
+
+allow lieppos_microg app_data_file:dir { search getattr read open create write add_name remove_name setattr rmdir };
+allow lieppos_microg app_data_file:file create_file_perms;
+allow lieppos_microg privapp_data_file:dir { search getattr read open create write add_name remove_name setattr rmdir };
+allow lieppos_microg privapp_data_file:file create_file_perms;
+
+allow lieppos_microg fs_type:filesystem getattr;
+
+allow lieppos_microg logd:unix_dgram_socket sendto;
+allow lieppos_microg kmsg_device:chr_file w_file_perms;
+
+allow lieppos_microg property_socket:sock_file write;
+allow lieppos_microg init:unix_stream_socket connectto;

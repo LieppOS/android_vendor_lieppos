@@ -1,0 +1,4 @@
+/sys/devices/platform/charger/power_supply/mtk-master-charger/input_current_limit  u:object_r:sysfs_batteryinfo:s0
+/system_ext/bin/hw/vendor\.lineage\.health-service\.default     u:object_r:hal_lineage_health_default_exec:s0
+/system/system_ext/bin/hw/vendor\.lineage\.health-service\.default     u:object_r:hal_lineage_health_default_exec:s0
+/system/bin/lieppos-microg-location-defaults\.sh                u:object_r:lieppos_microg_exec:s0

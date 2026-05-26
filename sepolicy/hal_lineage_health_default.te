@@ -1,0 +1,17 @@
+type hal_lineage_health_default, domain;
+type hal_lineage_health_default_exec, system_file_type, exec_type, file_type;
+type hal_lineage_health_service, service_manager_type;
+
+init_daemon_domain(hal_lineage_health_default)
+
+binder_use(hal_lineage_health_default)
+binder_call(hal_lineage_health_default, servicemanager)
+binder_call(hal_lineage_health_default, system_server)
+binder_call(system_server, hal_lineage_health_default)
+
+allow hal_lineage_health_default hal_lineage_health_service:service_manager { add find };
+allow hal_lineage_health_default sysfs_batteryinfo:file rw_file_perms;
+allow hal_lineage_health_default sysfs_batteryinfo:dir search;
+allow hal_lineage_health_default sysfs:dir search;
+
+allow system_server hal_lineage_health_service:service_manager find;
