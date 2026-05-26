@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LieppOS QS landscape overrides.
+  Match portrait: Quick QS 3x4, Full QS 5x6.
+-->
+<resources>
+    <integer name="quick_settings_max_rows">5</integer>
+    <integer name="quick_settings_num_columns">6</integer>
+    <integer name="quick_settings_paginated_grid_num_rows">5</integer>
+    <integer name="quick_settings_infinite_grid_num_columns">6</integer>
+</resources>

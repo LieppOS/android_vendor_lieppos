@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     LieppOS overlay: extend Lineage advanced-reboot submenu with Fastbootd.
+     RestartFastbootAction + global_action_restart_fastboot string already
+     exist in SystemUI; only the menu list needs the extra entry.
+-->
+<resources>
+    <string-array name="config_restartActionsList" translatable="false">
+        <item>restart</item>
+        <item>restart_recovery</item>
+        <item>restart_bootloader</item>
+        <item>restart_fastboot</item>
+    </string-array>
+</resources>
