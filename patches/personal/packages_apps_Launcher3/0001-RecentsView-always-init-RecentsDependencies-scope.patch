@@ -1,0 +1,50 @@
+From 652823b7fe6a341fee4bd07f0a1dbb8569bd89fa Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Tue, 28 Apr 2026 00:43:25 +0300
+Subject: [PATCH] RecentsView: always init RecentsDependencies scope
+
+TaskView always pulls RecentsDependencies, but the DI scope was only
+created when enableRefactorTaskThumbnail() was true, causing
+'Recents dependencies are not initialized' aborts in Trebuchet/Quickstep.
+Always call maybeInitialize() and createRecentsViewScope(); keep
+refactored thumbnail wiring behind the flag; destroy scope on detach
+even when flag is off.
+
+Change-Id: I19036a2962b64a2fff19c5bbbbd7d4557366e5fc
+---
+ .../src/com/android/quickstep/views/RecentsView.java  | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/quickstep/src/com/android/quickstep/views/RecentsView.java b/quickstep/src/com/android/quickstep/views/RecentsView.java
+index 111c99b53a..db32c90e6f 100644
+--- a/quickstep/src/com/android/quickstep/views/RecentsView.java
++++ b/quickstep/src/com/android/quickstep/views/RecentsView.java
+@@ -901,11 +901,12 @@ public abstract class RecentsView<
+         final int rotation = mContainer.getDisplay().getRotation();
+         mOrientationState.setRecentsRotation(rotation);
+ 
+-        // Start Recents Dependency graph
++        // Start Recents dependency graph and create a per-RecentsView scope. TaskView relies on
++        // scope-level dependencies even when the refactored thumbnail pipeline is disabled.
++        RecentsDependencies recentsDependencies =
++                RecentsDependencies.maybeInitialize(context, ProductionDispatchers.INSTANCE);
++        String scopeId = recentsDependencies.createRecentsViewScope(context);
+         if (enableRefactorTaskThumbnail()) {
+-            RecentsDependencies recentsDependencies =
+-                    RecentsDependencies.maybeInitialize(context, ProductionDispatchers.INSTANCE);
+-            String scopeId = recentsDependencies.createRecentsViewScope(context);
+             mRecentsViewModel = new RecentsViewModel(
+                     recentsDependencies.inject(RecentTasksRepository.class, scopeId),
+                     recentsDependencies.inject(RecentsViewData.class, scopeId),
+@@ -1323,6 +1324,8 @@ public abstract class RecentsView<
+             mGroupedTaskViewPool.cancelOngoingInitializations();
+             mDesktopTaskViewPool.cancelOngoingInitializations();
+             mHelper.onDestroy();
++        }
++        if (RecentsDependencies.Companion.hasScope(getContext())) {
+             RecentsDependencies.destroy(getContext());
+         }
+     }
+-- 
+2.50.1
+

@@ -1,0 +1,223 @@
+From e76123798cb11bc098ef3391f9a1e8d8f3d151c9 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Fri, 22 May 2026 02:16:11 +0300
+Subject: [PATCH] LieppOS uncommitted WIP: packages/apps/Launcher3
+
+Change-Id: I1fce473ab6e6d73579c9bb3e107f35fcf20d4e0d
+---
+ .../res/layout/overview_actions_container.xml | 10 ++-
+ .../fallback/FallbackRecentsView.java         |  5 +-
+ .../quickstep/views/LauncherRecentsView.java  |  8 +-
+ .../quickstep/views/OverviewActionsView.java  | 81 ++++++++++++++++++-
+ .../android/quickstep/views/RecentsView.java  |  2 +-
+ 5 files changed, 96 insertions(+), 10 deletions(-)
+
+diff --git a/quickstep/res/layout/overview_actions_container.xml b/quickstep/res/layout/overview_actions_container.xml
+index ce54028256..d0fe792dcb 100644
+--- a/quickstep/res/layout/overview_actions_container.xml
++++ b/quickstep/res/layout/overview_actions_container.xml
+@@ -37,6 +37,14 @@
+             android:drawableStart="@drawable/ic_screenshot"
+             android:text="@string/action_screenshot" />
+ 
++        <Button
++            android:id="@+id/action_clear_all"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:layout_marginStart="@dimen/overview_actions_button_spacing"
++            android:text="@string/recents_clear_all"
++            android:visibility="gone" />
++
+         <Button
+             android:id="@+id/action_split"
+             android:layout_width="wrap_content"
+@@ -57,4 +65,4 @@
+         android:layout_gravity="bottom|center_horizontal"
+         android:visibility="gone" />
+ 
+-</com.android.quickstep.views.OverviewActionsView>
+\ No newline at end of file
++</com.android.quickstep.views.OverviewActionsView>
+diff --git a/quickstep/src/com/android/quickstep/fallback/FallbackRecentsView.java b/quickstep/src/com/android/quickstep/fallback/FallbackRecentsView.java
+index 9caef911d3..4c71aba7ea 100644
+--- a/quickstep/src/com/android/quickstep/fallback/FallbackRecentsView.java
++++ b/quickstep/src/com/android/quickstep/fallback/FallbackRecentsView.java
+@@ -305,8 +305,9 @@ public class FallbackRecentsView<CONTAINER_TYPE extends Context & RecentsViewCon
+     public void setOverviewStateEnabled(boolean enabled) {
+         super.setOverviewStateEnabled(enabled);
+         if (enabled) {
+-            RecentsState state = mContainer.getStateManager().getState();
+-            setDisallowScrollToClearAll(!state.hasClearAllButton());
++            // LieppOS keeps Clear All in the overview action bar, so the old carousel page must not
++            // be reachable. Letting Recents snap to that page can look like a blank task.
++            setDisallowScrollToClearAll(true);
+         }
+     }
+ 
+diff --git a/quickstep/src/com/android/quickstep/views/LauncherRecentsView.java b/quickstep/src/com/android/quickstep/views/LauncherRecentsView.java
+index 98c138d67a..ac000f0bc8 100644
+--- a/quickstep/src/com/android/quickstep/views/LauncherRecentsView.java
++++ b/quickstep/src/com/android/quickstep/views/LauncherRecentsView.java
+@@ -17,7 +17,6 @@ package com.android.quickstep.views;
+ 
+ import static android.app.ActivityTaskManager.INVALID_TASK_ID;
+ 
+-import static com.android.launcher3.LauncherState.CLEAR_ALL_BUTTON;
+ import static com.android.launcher3.LauncherState.OVERVIEW;
+ import static com.android.launcher3.LauncherState.OVERVIEW_MODAL_TASK;
+ import static com.android.launcher3.LauncherState.OVERVIEW_SPLIT_SELECT;
+@@ -190,10 +189,9 @@ public class LauncherRecentsView extends RecentsView<QuickstepLauncher, Launcher
+     public void setOverviewStateEnabled(boolean enabled) {
+         super.setOverviewStateEnabled(enabled);
+         if (enabled) {
+-            LauncherState state = getStateManager().getState();
+-            boolean hasClearAllButton = (state.getVisibleElements(mContainer.getLauncherUiState())
+-                            & CLEAR_ALL_BUTTON) != 0;
+-            setDisallowScrollToClearAll(!hasClearAllButton);
++            // LieppOS keeps Clear All in the overview action bar, so the old carousel page must not
++            // be reachable. Letting Recents snap to that page can look like a blank task.
++            setDisallowScrollToClearAll(true);
+         }
+     }
+ 
+diff --git a/quickstep/src/com/android/quickstep/views/OverviewActionsView.java b/quickstep/src/com/android/quickstep/views/OverviewActionsView.java
+index 674ce5b821..7e26cc90f6 100644
+--- a/quickstep/src/com/android/quickstep/views/OverviewActionsView.java
++++ b/quickstep/src/com/android/quickstep/views/OverviewActionsView.java
+@@ -146,6 +146,8 @@ public class OverviewActionsView<T extends OverlayUICallbacks> extends FrameLayo
+ 
+     /** Container for the action buttons below a focused, non-split Overview tile. */
+     protected LinearLayout mActionButtons;
++    @Nullable
++    private Button mClearAllActionButton;
+     private Button mSplitButton;
+     /**
+      * The "save app pair" button. Currently this is the only button that is not contained in
+@@ -216,8 +218,30 @@ public class OverviewActionsView<T extends OverlayUICallbacks> extends FrameLayo
+         mSplitButton = findViewById(R.id.action_split);
+         mSplitButton.setOnClickListener(this);
+         mSaveAppPairButton.setOnClickListener(this);
++
++        // LieppOS: clear-all button in action bar
++        mClearAllActionButton = findViewById(R.id.action_clear_all);
++        if (mClearAllActionButton != null) {
++            mClearAllActionButton.setOnClickListener(this);
++            mLieppClearAllObserver = new android.database.ContentObserver(
++                    new android.os.Handler(android.os.Looper.getMainLooper())) {
++                @Override
++                public void onChange(boolean selfChange) {
++                    boolean en = android.provider.Settings.System.getInt(
++                            getContext().getContentResolver(),
++                            android.provider.Settings.System.LIEPPOS_RECENTS_CLEAR_ALL, 1) == 1;
++                    mClearAllActionButton.setVisibility(en ? VISIBLE : GONE);
++                    updateClearAllActionButtonEnabled();
++                }
++            };
++            registerLieppClearAllObserver();
++            mLieppClearAllObserver.onChange(true);
++        }
+     }
+ 
++    private android.database.ContentObserver mLieppClearAllObserver;
++    private boolean mLieppClearAllObserverRegistered;
++
+     /**
+      * Set listener for callbacks on action button taps.
+      *
+@@ -229,10 +253,14 @@ public class OverviewActionsView<T extends OverlayUICallbacks> extends FrameLayo
+ 
+     @Override
+     public void onClick(View view) {
++        int id = view.getId();
++        if (id == R.id.action_clear_all) {
++            dismissAllTasks(view);
++            return;
++        }
+         if (mCallbacks == null) {
+             return;
+         }
+-        int id = view.getId();
+         if (id == R.id.action_screenshot) {
+             mCallbacks.onScreenshot();
+         } else if (id == R.id.action_split) {
+@@ -242,6 +270,16 @@ public class OverviewActionsView<T extends OverlayUICallbacks> extends FrameLayo
+         }
+     }
+ 
++    private void dismissAllTasks(View view) {
++        try {
++            RecentsViewContainer container = RecentsViewContainer.containerFromContext(getContext());
++            RecentsView<?, ?> recentsView = container.getOverviewPanel();
++            recentsView.dismissAllTasks(view);
++        } catch (IllegalArgumentException e) {
++            Log.w(TAG, "Could not find RecentsViewContainer for clear all", e);
++        }
++    }
++
+     @Override
+     protected void onConfigurationChanged(Configuration newConfig) {
+         super.onConfigurationChanged(newConfig);
+@@ -281,6 +319,47 @@ public class OverviewActionsView<T extends OverlayUICallbacks> extends FrameLayo
+         }
+         boolean isEnabled = (mDisabledFlags & ~DISABLED_ROTATED) == 0;
+         LayoutUtils.setViewEnabled(this, isEnabled);
++        updateClearAllActionButtonEnabled();
++    }
++
++    private void updateClearAllActionButtonEnabled() {
++        if (mClearAllActionButton == null) {
++            return;
++        }
++        // Clear all does not depend on the focused task thumbnail. Keep it unavailable only while
++        // Recents is actively scrolling, where dismissing the stack can race page bookkeeping.
++        boolean enabled = (mDisabledFlags & DISABLED_SCROLLING) == 0;
++        if (enabled) {
++            setEnabled(true);
++            mActionButtons.setEnabled(true);
++        }
++        mClearAllActionButton.setEnabled(enabled);
++    }
++
++    @Override
++    protected void onAttachedToWindow() {
++        super.onAttachedToWindow();
++        registerLieppClearAllObserver();
++    }
++
++    @Override
++    protected void onDetachedFromWindow() {
++        super.onDetachedFromWindow();
++        if (mLieppClearAllObserverRegistered) {
++            getContext().getContentResolver().unregisterContentObserver(mLieppClearAllObserver);
++            mLieppClearAllObserverRegistered = false;
++        }
++    }
++
++    private void registerLieppClearAllObserver() {
++        if (mLieppClearAllObserver == null || mLieppClearAllObserverRegistered) {
++            return;
++        }
++        getContext().getContentResolver().registerContentObserver(
++                android.provider.Settings.System.getUriFor(
++                        android.provider.Settings.System.LIEPPOS_RECENTS_CLEAR_ALL),
++                false, mLieppClearAllObserver);
++        mLieppClearAllObserverRegistered = true;
+     }
+ 
+     /**
+diff --git a/quickstep/src/com/android/quickstep/views/RecentsView.java b/quickstep/src/com/android/quickstep/views/RecentsView.java
+index 111c99b53a..73c0082658 100644
+--- a/quickstep/src/com/android/quickstep/views/RecentsView.java
++++ b/quickstep/src/com/android/quickstep/views/RecentsView.java
+@@ -4651,7 +4651,7 @@ public abstract class RecentsView<
+     }
+ 
+     @SuppressWarnings("unused")
+-    private void dismissAllTasks(View view) {
++    public void dismissAllTasks(View view) {
+         InteractionJankMonitorWrapper.begin(this, Cuj.CUJ_LAUNCHER_OVERVIEW_CLEAR_ALL);
+         if (enableExpressiveDismissTaskMotion()) {
+             mDismissUtils.dismissAllTasks();
+-- 
+2.50.1
+
