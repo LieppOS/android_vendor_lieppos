@@ -1,0 +1,16 @@
+android_app_import {
+    name: "AndroidNfc",
+    apk: "AndroidNfc.apk",
+    privileged: true,
+    certificate: "platform",
+    dex_preopt: {
+        enabled: false,
+    },
+    required: ["privapp-permissions-androidnfc.xml"],
+}
+
+prebuilt_etc {
+    name: "privapp-permissions-androidnfc.xml",
+    src: "privapp-permissions-androidnfc.xml",
+    sub_dir: "permissions",
+}

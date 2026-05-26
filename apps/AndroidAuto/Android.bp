@@ -1,0 +1,34 @@
+// Android Auto (Gearhead) stub + RRO overlay + privapp permissions.
+// Stub is signed by Google; Aurora Store / Play Store replaces it at runtime
+// with the full APK, which inherits priv-app status from this system entry.
+// Play Services API calls land on microG GmsCore.
+// preprocessed: true required for targetSdk >= 30 signature-v2 APKs.
+
+android_app_import {
+    name: "AndroidAutoStubPrebuilt",
+    apk: "AndroidAutoStubPrebuilt.apk",
+    presigned: true,
+    preprocessed: true,
+    privileged: true,
+    overrides: ["AndroidAuto"],
+    dex_preopt: {
+        enabled: false,
+    },
+    required: ["privapp-permissions-com.google.android.projection.gearhead.xml"],
+}
+
+android_app_import {
+    name: "AndroidAutoOverlay",
+    apk: "AndroidAutoOverlay.apk",
+    presigned: true,
+    preprocessed: true,
+    dex_preopt: {
+        enabled: false,
+    },
+}
+
+prebuilt_etc {
+    name: "privapp-permissions-com.google.android.projection.gearhead.xml",
+    src: "privapp-permissions-com.google.android.projection.gearhead.xml",
+    sub_dir: "permissions",
+}
