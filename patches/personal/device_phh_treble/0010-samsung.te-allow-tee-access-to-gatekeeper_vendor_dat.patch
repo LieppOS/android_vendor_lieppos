@@ -1,0 +1,27 @@
+From f1ed352a13ffeeae0015c3cc11f48d1b2e56ca8f Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Mon, 27 Apr 2026 10:31:03 +0300
+Subject: samsung.te: allow tee access to gatekeeper_vendor_data_file
+
+Allow tee (qseecomd) access to /data gatekeeper secure storage; gatekeeper_vendor_data_file is already declared in system/sepolicy/private/file.te so only allow rules are needed here.
+---
+ sepolicy/samsung.te | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/sepolicy/samsung.te b/sepolicy/samsung.te
+index 933c28e..2126f7d 100644
+--- a/sepolicy/samsung.te
++++ b/sepolicy/samsung.te
+@@ -24,8 +24,7 @@ allow hal_usb_default system_prop:file { getattr map open read };
+ 
+ # allow qseecomd (tee) to access gatekeeper secure storage on /data
+ # (without this, PIN/password verification fails with error -506 because
+-# the gatekeeper HAL cannot load or save its brute-force throttling records;
+-# gatekeeper_vendor_data_file is already declared in system/sepolicy/private/file.te)
++# the gatekeeper HAL cannot load or save its brute-force throttling records)
+ allow tee gatekeeper_vendor_data_file:dir { add_name open read remove_name search write };
+ allow tee gatekeeper_vendor_data_file:file { create getattr open read setattr unlink write };
+ 
+-- 
+2.50.1
+

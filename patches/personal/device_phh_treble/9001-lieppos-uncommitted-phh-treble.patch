@@ -1,0 +1,639 @@
+From 3685339d32cf57fa2b436869effa1791f4fc72a5 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Sun, 24 May 2026 14:47:47 +0300
+Subject: [PATCH] LieppOS uncommitted WIP: device/phh/treble
+
+---
+ AndroidProducts.mk            |   8 +--
+ aex.mk                        |   4 --
+ amyROM.mk                     |   1 -
+ base.mk                       |   7 +++
+ carbon.mk                     |   9 ---
+ gapps-go.mk                   |  24 --------
+ gapps.mk                      |  52 ----------------
+ havoc.mk                      |   3 -
+ lieppos_target_base.mk        |  61 +++++++++++++++++++
+ lineage.mk                    |   5 ++
+ lineage_arm64_bgN4.mk         |  22 -------
+ lineage_arm64_bgNE.mk         |  24 --------
+ lineage_arm64_bvN4.mk         |  22 -------
+ lineage_arm64_bvNE.mk         |  52 +---------------
+ lineage_arm64_bvNE_gapps.mk   |   6 ++
+ lineage_arm64_bvNE_semi.mk    |   6 ++
+ lineage_arm64_bvNE_vanilla.mk |   6 ++
+ phh-on-boot.sh                | 110 +++++++++++++++++++++++++++++++++-
+ rw-system.sh                  |   5 ++
+ vndk.rc                       |  11 +++-
+ 20 files changed, 220 insertions(+), 218 deletions(-)
+ delete mode 100644 aex.mk
+ delete mode 100644 amyROM.mk
+ delete mode 100644 carbon.mk
+ delete mode 100644 gapps-go.mk
+ delete mode 100644 gapps.mk
+ delete mode 100644 havoc.mk
+ create mode 100644 lieppos_target_base.mk
+ delete mode 100644 lineage_arm64_bgN4.mk
+ delete mode 100644 lineage_arm64_bgNE.mk
+ delete mode 100644 lineage_arm64_bvN4.mk
+ create mode 100644 lineage_arm64_bvNE_gapps.mk
+ create mode 100644 lineage_arm64_bvNE_semi.mk
+ create mode 100644 lineage_arm64_bvNE_vanilla.mk
+
+diff --git a/AndroidProducts.mk b/AndroidProducts.mk
+index 0a439c3..698177c 100644
+--- a/AndroidProducts.mk
++++ b/AndroidProducts.mk
+@@ -5,7 +5,7 @@
+ #
+ 
+ PRODUCT_MAKEFILES += \
+-    $(LOCAL_DIR)/lineage_arm64_bgN4.mk \
+-    $(LOCAL_DIR)/lineage_arm64_bgNE.mk \
+-    $(LOCAL_DIR)/lineage_arm64_bvN4.mk \
+-    $(LOCAL_DIR)/lineage_arm64_bvNE.mk
++    $(LOCAL_DIR)/lineage_arm64_bvNE.mk \
++    $(LOCAL_DIR)/lineage_arm64_bvNE_vanilla.mk \
++    $(LOCAL_DIR)/lineage_arm64_bvNE_semi.mk \
++    $(LOCAL_DIR)/lineage_arm64_bvNE_gapps.mk
+diff --git a/aex.mk b/aex.mk
+deleted file mode 100644
+index c41ea78..0000000
+--- a/aex.mk
++++ /dev/null
+@@ -1,4 +0,0 @@
+-$(call inherit-product, $(SRC_TARGET_DIR)/product/core_64_bit.mk)
+-$(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
+-$(call inherit-product, vendor/aosp/common.mk)
+-TARGET_BOOT_ANIMATION_RES := 1080
+diff --git a/amyROM.mk b/amyROM.mk
+deleted file mode 100644
+index db6dfc0..0000000
+--- a/amyROM.mk
++++ /dev/null
+@@ -1 +0,0 @@
+-$(call inherit-product, vendor/amy/config/common.mk)
+diff --git a/base.mk b/base.mk
+index abcfd3f..79c0c54 100644
+--- a/base.mk
++++ b/base.mk
+@@ -40,6 +40,13 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
+     ro.cust.cdrom=/dev/null
+ 
++# LieppOS: disable ADB key-fingerprint authorization on user builds.
++# WITH_ADB_INSECURE alone did not stick in lineage_arm64_bvNE-bp4a-user, leaving
++# ro.adb.secure=1 and adbd refusing host connections without an auth prompt.
++# Force ro.adb.secure=0 via system_ext properties so adbd skips auth on this GSI.
++PRODUCT_SYSTEM_EXT_PROPERTIES += \
++    ro.adb.secure=0
++
+ # VNDK config files
+ PRODUCT_COPY_FILES += \
+     device/phh/treble/vndk-detect:system/bin/vndk-detect \
+diff --git a/carbon.mk b/carbon.mk
+deleted file mode 100644
+index ba22566..0000000
+--- a/carbon.mk
++++ /dev/null
+@@ -1,9 +0,0 @@
+-$(call inherit-product, vendor/carbon/config/gsm.mk)
+-$(call inherit-product, vendor/carbon/config/common.mk)
+-PRODUCT_PROPERTY_OVERRIDES += \
+-    ro.carbon.maintainer="phh"
+-
+-#By default, CarbonROM copies it into root/init.carbon.rc
+-#For this to work in GSI, we put it in /system
+-PRODUCT_COPY_FILES += \
+-	vendor/carbon/prebuilt/etc/init.carbon.rc:system/etc/init/init.carbon.rc
+diff --git a/gapps-go.mk b/gapps-go.mk
+deleted file mode 100644
+index 49a9df2..0000000
+--- a/gapps-go.mk
++++ /dev/null
+@@ -1,24 +0,0 @@
+-BUILD_GMS := yes
+-#include not inherit, because we must edit some values
+--include vendor/google/products/gms_go.mk
+--include vendor/partner_gms/products/gms_go.mk
+-
+-FILTER_OUT = $(foreach v,$(2),$(if $(findstring $(1),$(v)),,$(v)))
+-
+-#gms_go.mk has a broken copy of google_go.xml => google.xml
+-#But there already is a google.xml => google.xml
+-#Only difference between those is maps go and youtube go applinks, so good enough
+-PRODUCT_COPY_FILES := $(call FILTER_OUT,google_go.xml:, $(PRODUCT_COPY_FILES))
+-
+-#We need to use this way because it overrides sync adapters
+-PRODUCT_PACKAGES := $(filter-out CalendarGoogle, $(PRODUCT_PACKAGES))
+-PRODUCT_PACKAGES := $(filter-out GoogleContacts, $(PRODUCT_PACKAGES))
+-
+-#Launcher3Go has no recents support...?
+-PRODUCT_PACKAGES := $(filter-out Launcher3Go, $(PRODUCT_PACKAGES))
+-
+-PRODUCT_SHIPPING_API_LEVEL :=
+-
+-PRODUCT_PACKAGES += \
+-	phh-gapps-go-overrides \
+-	GoogleContactsSyncAdapter \
+diff --git a/gapps.mk b/gapps.mk
+deleted file mode 100644
+index 15e12a9..0000000
+--- a/gapps.mk
++++ /dev/null
+@@ -1,52 +0,0 @@
+-BUILD_GMS := yes
+-ifneq ($(wildcard vendor/google)$(wildcard vendor/partner_gms),)
+--include vendor/google/products/gms.mk
+--include vendor/partner_gms/products/gms.mk
+-PRODUCT_SHIPPING_API_LEVEL :=
+-
+-PRODUCT_PACKAGES := $(filter-out CalendarGoogle, $(PRODUCT_PACKAGES))
+-PRODUCT_PACKAGES := $(filter-out GoogleContacts, $(PRODUCT_PACKAGES))
+-
+-PRODUCT_PACKAGES += \
+-	phh-gapps-overrides \
+-	Chrome \
+-	GoogleContactsSyncAdapter \
+-	talkback \
+-
+-PRODUCT_SYSTEM_DEFAULT_PROPERTIES := $(filter-out ro.boot.vendor.overlay.theme=%,$(PRODUCT_SYSTEM_DEFAULT_PROPERTIES))
+-endif
+-
+-ifneq ($(wildcard vendor/opengapps),)
+-PRODUCT_COPY_FILES += \
+-	device/phh/treble/empty-permission.xml:system/etc/permissions/com.google.android.camera2.xml \
+-	device/phh/treble/empty-permission.xml:system/etc/permissions/com.google.android.camera.experimental2015.xml \
+-	device/phh/treble/empty-permission.xml:system/etc/permissions/com.google.android.camera.experimental2016.xml \
+-	device/phh/treble/empty-permission.xml:system/etc/permissions/com.google.android.camera.experimental2017.xml
+-
+-PRODUCT_PACKAGE_OVERLAYS += device/phh/treble/overlay-gapps
+-GAPPS_VARIANT := pico
+-DONT_DEXPREOPT_PREBUILTS := true
+-WITH_DEXPREOPT_BOOT_IMG_AND_SYSTEM_SERVER_ONLY := true
+-GAPPS_FORCE_PACKAGE_OVERRIDES := true
+-GAPPS_FORCE_BROWSER_OVERRIDES := true
+-GAPPS_FORCE_WEBVIEW_OVERRIDES := true
+-PRODUCT_PACKAGES += \
+-       Chrome \
+-       CalculatorGoogle \
+-       PrebuiltDeskClockGoogle \
+-       CalendarGooglePrebuilt \
+-       LatinImeGoogle \
+-       phh-overrides
+-
+-$(call inherit-product, vendor/opengapps/build/opengapps-packages.mk)
+-endif
+-
+-#Pixel Experience gapps
+-ifneq ($(wildcard vendor/gapps),)
+-IS_PHONE := true
+-$(call inherit-product,vendor/gapps/config.mk)
+-PRODUCT_PACKAGES += \
+-       phh-overrides \
+-	   com.simplemobiletools.gallery.pro \
+-
+-endif
+diff --git a/havoc.mk b/havoc.mk
+deleted file mode 100644
+index 4a5b503..0000000
+--- a/havoc.mk
++++ /dev/null
+@@ -1,3 +0,0 @@
+-$(call inherit-product, vendor/havoc/config/common_full_phone.mk)
+-$(call inherit-product, device/havoc/sepolicy/common/sepolicy.mk)
+--include vendor/havoc/build/core/config.mk
+diff --git a/lieppos_target_base.mk b/lieppos_target_base.mk
+new file mode 100644
+index 0000000..93a02d3
+--- /dev/null
++++ b/lieppos_target_base.mk
+@@ -0,0 +1,61 @@
++# Shared LieppOS GSI target boilerplate. `include`d by each per-flavor product
++# makefile (lineage_arm64_bvNE[_*].mk); the product sets PRODUCT_NAME and
++# inherits its vendor/lieppos/flavors/*.mk after this. Device stays
++# tdgsi_arm64_ab for every flavor — build.sh isolates flavors via OUT_DIR.
++
++TARGET_GAPPS_ARCH := arm64
++include build/make/target/product/aosp_arm64.mk
++$(call inherit-product, device/phh/treble/base.mk)
++
++$(call inherit-product, device/phh/treble/lineage.mk)
++
++PRODUCT_DEVICE := tdgsi_arm64_ab
++PRODUCT_BRAND := google
++PRODUCT_SYSTEM_BRAND := google
++PRODUCT_MODEL := Ulefone Thermal 29 Pro
++
++# Overwrite the inherited "emulator" characteristics
++PRODUCT_CHARACTERISTICS := device
++
++LINEAGE_BUILDTYPE := VANILLA
++LINEAGE_BUILD := GSI
++
++#EROFS
++LINEAGE_EXTRAVERSION := -EROFS
++GSI_FILE_SYSTEM_TYPE := erofs
++BOARD_EROFS_COMPRESSOR := lz4hc,9
++TARGET_PRODUCT_PROP += device/phh/treble/product.prop
++
++# Release signing
++PRODUCT_DEFAULT_DEV_CERTIFICATE := vendor/lineage-priv/keys/releasekey
++PRODUCT_OTA_PUBLIC_KEYS := vendor/lineage-priv/keys/releasekey
++PRODUCT_EXTRA_RECOVERY_KEYS := vendor/lineage-priv/keys/releasekey
++
++# Spoof to Pixel 9 Pro stock A16 (caiman).
++# PINNED — do not bump this fingerprint when real Pixel OTAs ship. MeaWallet /
++# Mastercard tokenization treats any fingerprint change as "new or upgraded
++# device" and burns one slot from the per-PAN token quota. Each bump cost a
++# Swedbank slot until quota hit and onboarding started reporting
++# "PAN provisioning count exceeded". Only bump when forced by an integrity
++# allow-list rejection, and pre-revoke unused bank tokens before doing so.
++BUILD_FINGERPRINT := google/caiman/caiman:16/BP4A.251205.006/14401865:user/release-keys
++BUILD_NUMBER := 14401865
++
++PRODUCT_BUILD_PROP_OVERRIDES += \
++    BuildId=BP4A.251205.006 \
++    BuildDesc="caiman-user 16 BP4A.251205.006 14401865 release-keys" \
++    DeviceProduct=caiman \
++    DeviceName=caiman \
++    ProductBrand=google \
++    ProductManufacturer=Google \
++    ProductModel="Pixel 9 Pro" \
++    SystemBrand=google \
++    SystemDevice=caiman \
++    SystemManufacturer=Google \
++    SystemModel="Pixel 9 Pro" \
++    SystemName=caiman \
++    ProductModelForAttestation="Pixel 9 Pro" \
++    ProductBrandForAttestation=google \
++    ProductNameForAttestation=caiman \
++    ProductDeviceForAttestation=caiman \
++    ProductManufacturerForAttestation=Google
+diff --git a/lineage.mk b/lineage.mk
+index 018d12d..421e8da 100644
+--- a/lineage.mk
++++ b/lineage.mk
+@@ -1,3 +1,8 @@
++# LieppOS ships ADB/root QS controls on user builds. Some GSI devices do not
++# reliably surface the framework ADB authorization dialog, so keep USB ADB
++# usable when the user enables it.
++WITH_ADB_INSECURE := true
++
+ $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
+ $(call inherit-product, vendor/lineage/config/BoardConfigSoong.mk)
+ $(call inherit-product, vendor/lineage/config/BoardConfigLineage.mk)
+diff --git a/lineage_arm64_bgN4.mk b/lineage_arm64_bgN4.mk
+deleted file mode 100644
+index f9f7882..0000000
+--- a/lineage_arm64_bgN4.mk
++++ /dev/null
+@@ -1,22 +0,0 @@
+-TARGET_GAPPS_ARCH := arm64
+-include build/make/target/product/aosp_arm64.mk
+-$(call inherit-product, device/phh/treble/base.mk)
+-
+-$(call inherit-product-if-exists, vendor/gapps/arm64/arm64-vendor.mk)
+-$(call inherit-product, device/phh/treble/lineage.mk)
+-
+-PRODUCT_NAME := lineage_arm64_bgN4
+-PRODUCT_DEVICE := tdgsi_arm64_ab
+-PRODUCT_BRAND := google
+-PRODUCT_SYSTEM_BRAND := google
+-PRODUCT_MODEL := TrebleDroid
+-
+-# Overwrite the inherited "emulator" characteristics
+-PRODUCT_CHARACTERISTICS := device
+-
+-LINEAGE_BUILDTYPE := GAPPS
+-LINEAGE_BUILD := GSI
+-
+-#EXT4
+-LINEAGE_EXTRAVERSION := -EXT4
+-PRODUCT_EXTRA_VNDK_VERSIONS += 28 29
+diff --git a/lineage_arm64_bgNE.mk b/lineage_arm64_bgNE.mk
+deleted file mode 100644
+index 8aaa408..0000000
+--- a/lineage_arm64_bgNE.mk
++++ /dev/null
+@@ -1,24 +0,0 @@
+-TARGET_GAPPS_ARCH := arm64
+-include build/make/target/product/aosp_arm64.mk
+-$(call inherit-product, device/phh/treble/base.mk)
+-
+-$(call inherit-product-if-exists, vendor/gapps/arm64/arm64-vendor.mk)
+-$(call inherit-product, device/phh/treble/lineage.mk)
+-
+-PRODUCT_NAME := lineage_arm64_bgNE
+-PRODUCT_DEVICE := tdgsi_arm64_ab
+-PRODUCT_BRAND := google
+-PRODUCT_SYSTEM_BRAND := google
+-PRODUCT_MODEL := TrebleDroid
+-
+-# Overwrite the inherited "emulator" characteristics
+-PRODUCT_CHARACTERISTICS := device
+-
+-LINEAGE_BUILDTYPE := GAPPS
+-LINEAGE_BUILD := GSI
+-
+-#EROFS
+-LINEAGE_EXTRAVERSION := -EROFS
+-GSI_FILE_SYSTEM_TYPE := erofs
+-BOARD_EROFS_COMPRESSOR := lz4hc,9
+-TARGET_PRODUCT_PROP += device/phh/treble/product.prop
+diff --git a/lineage_arm64_bvN4.mk b/lineage_arm64_bvN4.mk
+deleted file mode 100644
+index 74f5906..0000000
+--- a/lineage_arm64_bvN4.mk
++++ /dev/null
+@@ -1,22 +0,0 @@
+-TARGET_GAPPS_ARCH := arm64
+-include build/make/target/product/aosp_arm64.mk
+-$(call inherit-product, device/phh/treble/base.mk)
+-
+-
+-$(call inherit-product, device/phh/treble/lineage.mk)
+-
+-PRODUCT_NAME := lineage_arm64_bvN4
+-PRODUCT_DEVICE := tdgsi_arm64_ab
+-PRODUCT_BRAND := google
+-PRODUCT_SYSTEM_BRAND := google
+-PRODUCT_MODEL := TrebleDroid
+-
+-# Overwrite the inherited "emulator" characteristics
+-PRODUCT_CHARACTERISTICS := device
+-
+-LINEAGE_BUILDTYPE := VANILLA
+-LINEAGE_BUILD := GSI
+-
+-#EXT4
+-LINEAGE_EXTRAVERSION := -EXT4
+-PRODUCT_EXTRA_VNDK_VERSIONS += 28 29
+diff --git a/lineage_arm64_bvNE.mk b/lineage_arm64_bvNE.mk
+index 6266a96..c6d8ad5 100644
+--- a/lineage_arm64_bvNE.mk
++++ b/lineage_arm64_bvNE.mk
+@@ -1,52 +1,6 @@
+-TARGET_GAPPS_ARCH := arm64
+-include build/make/target/product/aosp_arm64.mk
+-$(call inherit-product, device/phh/treble/base.mk)
+-
+-
+-$(call inherit-product, device/phh/treble/lineage.mk)
++# mano buildas — full personal LieppOS build (microG + all personal apps).
++include device/phh/treble/lieppos_target_base.mk
+ 
+ PRODUCT_NAME := lineage_arm64_bvNE
+-PRODUCT_DEVICE := tdgsi_arm64_ab
+-PRODUCT_BRAND := google
+-PRODUCT_SYSTEM_BRAND := google
+-PRODUCT_MODEL := Ulefone Thermal 29 Pro
+-
+-# Overwrite the inherited "emulator" characteristics
+-PRODUCT_CHARACTERISTICS := device
+-
+-LINEAGE_BUILDTYPE := VANILLA
+-LINEAGE_BUILD := GSI
+-
+-#EROFS
+-LINEAGE_EXTRAVERSION := -EROFS
+-GSI_FILE_SYSTEM_TYPE := erofs
+-BOARD_EROFS_COMPRESSOR := lz4hc,9
+-TARGET_PRODUCT_PROP += device/phh/treble/product.prop
+-
+-# Release signing
+-PRODUCT_DEFAULT_DEV_CERTIFICATE := vendor/lineage-priv/keys/releasekey
+-PRODUCT_OTA_PUBLIC_KEYS := vendor/lineage-priv/keys/releasekey
+-PRODUCT_EXTRA_RECOVERY_KEYS := vendor/lineage-priv/keys/releasekey
+-
+-# Spoof to Pixel 9 Pro stock A16 (caiman)
+-BUILD_FINGERPRINT := google/caiman/caiman:16/BP4A.251205.006/14401865:user/release-keys
+-BUILD_NUMBER := 14401865
+ 
+-PRODUCT_BUILD_PROP_OVERRIDES += \
+-    BuildId=BP4A.251205.006 \
+-    BuildDesc="caiman-user 16 BP4A.251205.006 14401865 release-keys" \
+-    DeviceProduct=caiman \
+-    DeviceName=caiman \
+-    ProductBrand=google \
+-    ProductManufacturer=Google \
+-    ProductModel="Pixel 9 Pro" \
+-    SystemBrand=google \
+-    SystemDevice=caiman \
+-    SystemManufacturer=Google \
+-    SystemModel="Pixel 9 Pro" \
+-    SystemName=caiman \
+-    ProductModelForAttestation="Pixel 9 Pro" \
+-    ProductBrandForAttestation=google \
+-    ProductNameForAttestation=caiman \
+-    ProductDeviceForAttestation=caiman \
+-    ProductManufacturerForAttestation=Google
++$(call inherit-product, vendor/lieppos/flavors/personal.mk)
+diff --git a/lineage_arm64_bvNE_gapps.mk b/lineage_arm64_bvNE_gapps.mk
+new file mode 100644
+index 0000000..a200709
+--- /dev/null
++++ b/lineage_arm64_bvNE_gapps.mk
+@@ -0,0 +1,6 @@
++# Google's — real GApps (MindTheGapps), no microG/F-Droid.
++include device/phh/treble/lieppos_target_base.mk
++
++PRODUCT_NAME := lineage_arm64_bvNE_gapps
++
++$(call inherit-product, vendor/lieppos/flavors/gapps.mk)
+diff --git a/lineage_arm64_bvNE_semi.mk b/lineage_arm64_bvNE_semi.mk
+new file mode 100644
+index 0000000..e9e7be2
+--- /dev/null
++++ b/lineage_arm64_bvNE_semi.mk
+@@ -0,0 +1,6 @@
++# Semi — microG + F-Droid (Privileged Extension), no personal apps.
++include device/phh/treble/lieppos_target_base.mk
++
++PRODUCT_NAME := lineage_arm64_bvNE_semi
++
++$(call inherit-product, vendor/lieppos/flavors/semi.mk)
+diff --git a/lineage_arm64_bvNE_vanilla.mk b/lineage_arm64_bvNE_vanilla.mk
+new file mode 100644
+index 0000000..24f19f3
+--- /dev/null
++++ b/lineage_arm64_bvNE_vanilla.mk
+@@ -0,0 +1,6 @@
++# Pure Vanilla — no GMS, no microG, no F-Droid.
++include device/phh/treble/lieppos_target_base.mk
++
++PRODUCT_NAME := lineage_arm64_bvNE_vanilla
++
++$(call inherit-product, vendor/lieppos/flavors/vanilla.mk)
+diff --git a/phh-on-boot.sh b/phh-on-boot.sh
+index 1adb226..8f8e458 100644
+--- a/phh-on-boot.sh
++++ b/phh-on-boot.sh
+@@ -44,7 +44,10 @@ if [ ! -f /metadata/securize_disable ]; then
+   resetprop_phh ro.warranty_bit 0
+   resetprop_phh --delete ro.build.selinux
+   resetprop_phh -n sys.oem_unlock_allowed 0
+-  resetprop_phh -n init.svc.adbd stopped
++  # NOTE: do not spoof init.svc.adbd=stopped here. AdbDebuggingManager polls
++  # SystemService.waitForState(ADBD, RUNNING); a faked "stopped" makes that wait
++  # time out and the manager writes Settings.Global.ADB_ENABLED=0, silently
++  # killing ADB. Same reason the on-property spoof was removed from vndk.rc.
+   resetprop_phh -n init.svc.flash_recovery stopped
+ fi
+ 
+@@ -53,6 +56,108 @@ vndk="$(getprop persist.sys.vndk)"
+ 
+ [ "$(getprop vold.decrypt)" = "trigger_restart_min_framework" ] && exit 0
+ 
++usb_has_function() {
++    case ",$1," in
++        *",$2,"*) return 0 ;;
++        *) return 1 ;;
++    esac
++}
++
++usb_add_adb_function() {
++    cfg="$1"
++    if [ -z "$cfg" ] || [ "$cfg" = "none" ] || [ "$cfg" = "adb" ]; then
++        cfg="mtp"
++    fi
++    if usb_has_function "$cfg" adb; then
++        echo "$cfg"
++    else
++        echo "$cfg,adb"
++    fi
++}
++
++# LieppOS: persist ro.serialno across reboots and flashes.
++# Some MTK vendor init paths regenerate the serial on first boot, and a fresh
++# system-image flash can also shift derived attestation values. MeaWallet /
++# Mastercard tokenization bind to (build fingerprint + serial + attested keys);
++# any change burns one slot from the per-PAN token quota until onboarding
++# starts reporting "PAN provisioning count exceeded". Cache the first-seen
++# serial under /persist (which survives factory reset on this device) and
++# restore it on every later boot before zygote captures Build.SERIAL. Override
++# both ro.serialno and ro.boot.serialno so framework and vendor agree.
++# Force-rotate by `touch /persist/lieppos/serialno.wipe` then reboot.
++if [ ! -e /persist/lieppos/serialno.wipe ]; then
++    mkdir -p /persist/lieppos 2>/dev/null
++    if [ -s /persist/lieppos/serialno ]; then
++        saved_serial="$(cat /persist/lieppos/serialno 2>/dev/null)"
++        if [ -n "$saved_serial" ]; then
++            resetprop_phh -n ro.serialno "$saved_serial"
++            resetprop_phh -n ro.boot.serialno "$saved_serial"
++        fi
++    else
++        cur_serial="$(getprop ro.serialno)"
++        if [ -n "$cur_serial" ] && [ "$cur_serial" != "unknown" ]; then
++            echo "$cur_serial" > /persist/lieppos/serialno
++            chmod 0600 /persist/lieppos/serialno
++        fi
++    fi
++fi
++
++# LieppOS: open /dev/fm to the system uid so RevampedFMRadio (priv-app,
++# android.uid.system) can drive the MTK FM tuner via libmtkfmjni. Vendor
++# ueventd creates the node 0660 media:media; system has no access. Re-own
++# to system:media keeps mediaserver/HAL paths working while letting the
++# FM app open it. Re-runs on every boot are cheap and idempotent.
++if [ -c /dev/fm ]; then
++    chown system:media /dev/fm
++    chmod 0660 /dev/fm
++fi
++
++# LieppOS: force ADB no-auth on user release-keys builds.
++# Modern AOSP forces ro.adb.secure=1 into /system/build.prop for user builds and
++# ignores WITH_ADB_INSECURE; PRODUCT_SYSTEM_EXT_PROPERTIES does not override
++# /system/build.prop either. adbd reads ro.adb.secure once at startup, so reset
++# the prop before adbd's first start and restart any adbd that already came up.
++# This relies on resetprop_phh writing through to the ro.* property region.
++if [ "$(getprop ro.adb.secure)" != "0" ]; then
++    resetprop_phh ro.adb.secure 0
++    if [ "$(getprop init.svc.adbd)" = "running" ]; then
++        setprop ctl.restart adbd
++    fi
++fi
++
++# Some vendor USB init scripts restore only the data function (for example
++# mtp) even when persist.sys.usb.config still requests adb. Repair the active
++# config so the host sees an ADB interface without requiring Termux commands.
++usb_persist_cfg="$(getprop persist.sys.usb.config)"
++usb_current_cfg="$(getprop sys.usb.config)"
++if usb_has_function "$usb_persist_cfg" adb && ! usb_has_function "$usb_current_cfg" adb; then
++    usb_adb_cfg="$(usb_add_adb_function "$usb_current_cfg")"
++    log -t phh-on-boot "ADB persisted but current USB config is $usb_current_cfg; forcing $usb_adb_cfg"
++    setprop sys.usb.config none
++    sleep 1
++    setprop sys.usb.config "$usb_adb_cfg"
++fi
++
++# Force-apply ADB USB config when Settings.Global.adb_enabled=1 but the active
++# USB config lacks ADB. AdbService's content-observer chain on this build does
++# not reliably propagate the toggle to UsbDeviceManager.UsbHandler, so the
++# gadget keeps exposing MTP only and the host never sees an ADB interface.
++# Reading the settings DB at boot covers both reboot-with-ADB-on and the
++# observer-stale case after a Developer Options toggle.
++adb_setting="$(settings get global adb_enabled 2>/dev/null)"
++if [ "$adb_setting" = "1" ]; then
++    cur_cfg="$(getprop sys.usb.config)"
++    if ! usb_has_function "$cur_cfg" adb; then
++        usb_adb_cfg="$(usb_add_adb_function "$cur_cfg")"
++        log -t phh-on-boot "ADB_ENABLED=1 but sys.usb.config=$cur_cfg lacks adb; forcing $usb_adb_cfg"
++        setprop persist.sys.usb.config "$usb_adb_cfg"
++        setprop sys.usb.config none
++        sleep 1
++        setprop sys.usb.config "$usb_adb_cfg"
++        setprop ctl.start adbd
++    fi
++fi
++
+ # recover USB gadget if the UDC failed to bind during boot.
+ # on some exynos devices (e.g. samsung galaxy M33), the dwc3 OTG state
+ # machine starts the gadget before init has configured USB functions via
+@@ -63,6 +168,9 @@ udc_state="$(cat /config/usb_gadget/g1/UDC 2>/dev/null)"
+ if [ -z "$udc_state" ] || [ "$udc_state" = "none" ]; then
+     usb_cfg="$(getprop persist.sys.usb.config)"
+     if [ -n "$usb_cfg" ]; then
++        if usb_has_function "$usb_cfg" adb; then
++            usb_cfg="$(usb_add_adb_function "$usb_cfg")"
++        fi
+         log -t phh-on-boot "USB gadget not bound, retrying config: $usb_cfg"
+         setprop sys.usb.config none
+         sleep 1
+diff --git a/rw-system.sh b/rw-system.sh
+index 900287c..11ab2ea 100644
+--- a/rw-system.sh
++++ b/rw-system.sh
+@@ -1080,6 +1080,11 @@ if getprop ro.vendor.build.fingerprint |grep -qiE \
+         -e razer/cheryl ; then
+     setprop media.settings.xml "/vendor/etc/media_profiles_vendor.xml"
+ fi
++# LieppOS: always start adbd non-root at boot. adb-root runs the whole adbd
++# process as u:r:su:s0 (via --root_seclabel); on a user build su is unprivileged
++# and is denied listen() on the adbd control socket, so a rooted adbd aborts in a
++# crash-loop and ADB dies. adbd must boot as adbd:s0; root is applied on demand
++# via ADBRootService, never auto-applied at boot.
+ resetprop_phh service.adb.root 0
+ 
+ # This is for Samsung Galaxy devices with HBM FOD
+diff --git a/vndk.rc b/vndk.rc
+index 9776ac5..1c6e185 100644
+--- a/vndk.rc
++++ b/vndk.rc
+@@ -140,6 +140,11 @@ service watchdogd-gsi /system/bin/watchdogd 10 20
+ on property:sys.oem_unlock_allowed=*
+     exec u:r:phhsu_daemon:s0 root root -- /system/bin/resetprop_phh -n sys.oem_unlock_allowed 0
+ 
+-# hide adbd is running
+-on property:init.svc.adbd=*
+-    exec u:r:phhsu_daemon:s0 root root -- /system/bin/resetprop_phh -n init.svc.adbd stopped
++# adbd state hiding removed: spoofing init.svc.adbd=stopped via resetprop -n
++# kept the cosmetic init.svc value at "stopped" but had a real side effect.
++# AdbDebuggingManager.MESSAGE_ADB_CLEAR polls SystemService.waitForState(ADBD,
++# RUNNING) after restarting adbd; the spoof made that wait time out and the
++# manager wrote Settings.Global.ADB_ENABLED=0 to alert the user, silently
++# disabling ADB. The init.usb.configfs.rc "on init.svc.adbd=stopped" trigger
++# also clears sys.usb.ffs.ready=0 on every state change which can race the
++# gadget ffs.adb symlink setup. Leave init.svc.adbd alone.
+-- 
+2.54.0
+

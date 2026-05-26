@@ -1,0 +1,103 @@
+From e9056a4d5e0ca30d384524b4ccef3483849e72d8 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Mon, 27 Apr 2026 00:20:18 +0300
+Subject: [PATCH] yft_tools: LED + camp light toggle binaries
+
+Three sh_binary modules (toggle_blueled, toggle_redled, toggle_camplight) consumed by SystemUI Blue/Red/YftCampLightLeds QS tiles.
+---
+ yft_tools/Android.bp          | 17 +++++++++++++++++
+ yft_tools/toggle_blueled.sh   | 14 ++++++++++++++
+ yft_tools/toggle_camplight.sh | 14 ++++++++++++++
+ yft_tools/toggle_redled.sh    | 14 ++++++++++++++
+ 4 files changed, 59 insertions(+)
+ create mode 100644 yft_tools/Android.bp
+ create mode 100755 yft_tools/toggle_blueled.sh
+ create mode 100755 yft_tools/toggle_camplight.sh
+ create mode 100755 yft_tools/toggle_redled.sh
+
+diff --git a/yft_tools/Android.bp b/yft_tools/Android.bp
+new file mode 100644
+index 0000000..4723cca
+--- /dev/null
++++ b/yft_tools/Android.bp
+@@ -0,0 +1,17 @@
++sh_binary {
++    name: "toggle_camplight.sh",
++    src: "toggle_camplight.sh",
++    vendor: false,
++}
++
++sh_binary {
++    name: "toggle_redled.sh",
++    src: "toggle_redled.sh",
++    vendor: false,
++}
++
++sh_binary {
++    name: "toggle_blueled.sh",
++    src: "toggle_blueled.sh",
++    vendor: false,
++}
+diff --git a/yft_tools/toggle_blueled.sh b/yft_tools/toggle_blueled.sh
+new file mode 100755
+index 0000000..db18d59
+--- /dev/null
++++ b/yft_tools/toggle_blueled.sh
+@@ -0,0 +1,14 @@
++#!/system/bin/sh
++CTL=/sys/devices/platform/yft_camplight/leds_ctl
++PWR=/sys/devices/platform/yft_camplight/power/control
++STATE=/data/local/tmp/.blueled_state
++
++echo on > "$PWR"
++
++if [ -f "$STATE" ]; then
++    echo 0 > "$CTL"
++    rm "$STATE"
++else
++    echo 2 > "$CTL"
++    touch "$STATE"
++fi
+diff --git a/yft_tools/toggle_camplight.sh b/yft_tools/toggle_camplight.sh
+new file mode 100755
+index 0000000..8bb6217
+--- /dev/null
++++ b/yft_tools/toggle_camplight.sh
+@@ -0,0 +1,14 @@
++#!/system/bin/sh
++MODE=/sys/devices/platform/yft_camplight/camplight_mode
++BRIGHT=/sys/devices/platform/yft_camplight/camplight_set_brightness
++STATE=/data/local/tmp/.camplight_state
++
++if [ -f "$STATE" ]; then
++    echo 0 > "$MODE"
++    echo 0 > "$BRIGHT"
++    rm "$STATE"
++else
++    echo 90 > "$BRIGHT"
++    echo 1 > "$MODE"
++    touch "$STATE"
++fi
+diff --git a/yft_tools/toggle_redled.sh b/yft_tools/toggle_redled.sh
+new file mode 100755
+index 0000000..23bb2c4
+--- /dev/null
++++ b/yft_tools/toggle_redled.sh
+@@ -0,0 +1,14 @@
++#!/system/bin/sh
++CTL=/sys/devices/platform/yft_camplight/leds_ctl
++PWR=/sys/devices/platform/yft_camplight/power/control
++STATE=/data/local/tmp/.redled_state
++
++echo on > "$PWR"
++
++if [ -f "$STATE" ]; then
++    echo 0 > "$CTL"
++    rm "$STATE"
++else
++    echo 1 > "$CTL"
++    touch "$STATE"
++fi
+-- 
+2.50.1
+

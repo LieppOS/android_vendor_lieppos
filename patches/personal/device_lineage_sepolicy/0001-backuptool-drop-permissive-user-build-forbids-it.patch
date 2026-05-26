@@ -1,0 +1,27 @@
+From 23670c286a7b85cc64d4ed331b4c9bceb7e7fdaa Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Sun, 26 Apr 2026 23:03:11 +0300
+Subject: [PATCH] backuptool: drop permissive (user build forbids it)
+
+Lineage's userdebug_or_eng() guard still emits typepermissive in our user build path. Drop entirely; backuptool runs enforcing.
+
+Change-Id: Ida187183908292a4196d09387409cb46c37ebf61
+---
+ common/private/backuptool.te | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/common/private/backuptool.te b/common/private/backuptool.te
+index b948b61..6e79e61 100644
+--- a/common/private/backuptool.te
++++ b/common/private/backuptool.te
+@@ -5,7 +5,3 @@ neverallow {
+     -recovery
+     -update_engine
+ } backuptool:process transition;
+-
+-userdebug_or_eng(`
+-    permissive backuptool;
+-')
+-- 
+2.50.1
+

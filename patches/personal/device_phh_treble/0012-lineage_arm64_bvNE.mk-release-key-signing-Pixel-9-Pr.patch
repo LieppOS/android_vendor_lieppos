@@ -1,0 +1,59 @@
+From 6118bc5d878c111104971602bce0b2047ef51bba Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Sun, 26 Apr 2026 23:02:57 +0300
+Subject: [PATCH] lineage_arm64_bvNE.mk: release-key signing + Pixel 9 Pro
+ fingerprint spoof
+
+Sign with vendor/lineage-priv/keys/releasekey, spoof fingerprint to caiman/Pixel 9 Pro stock A16. PRODUCT_BUILD_PROP_OVERRIDES uses camelCase keys per build/soong/scripts/gen_build_prop.py.
+---
+ lineage_arm64_bvNE.mk | 30 +++++++++++++++++++++++++++++-
+ 1 file changed, 29 insertions(+), 1 deletion(-)
+
+diff --git a/lineage_arm64_bvNE.mk b/lineage_arm64_bvNE.mk
+index af80bf3..51a7f13 100644
+--- a/lineage_arm64_bvNE.mk
++++ b/lineage_arm64_bvNE.mk
+@@ -9,7 +9,7 @@ PRODUCT_NAME := lineage_arm64_bvNE
+ PRODUCT_DEVICE := tdgsi_arm64_ab
+ PRODUCT_BRAND := google
+ PRODUCT_SYSTEM_BRAND := google
+-PRODUCT_MODEL := TrebleDroid
++PRODUCT_MODEL := Ulefone Thermal 29 Pro
+ 
+ # Overwrite the inherited "emulator" characteristics
+ PRODUCT_CHARACTERISTICS := device
+@@ -22,3 +22,31 @@ LINEAGE_EXTRAVERSION := -EROFS
+ GSI_FILE_SYSTEM_TYPE := erofs
+ BOARD_EROFS_COMPRESSOR := lz4hc,9
+ TARGET_PRODUCT_PROP += device/phh/treble/product.prop
++
++# Release signing
++PRODUCT_DEFAULT_DEV_CERTIFICATE := vendor/lineage-priv/keys/releasekey
++PRODUCT_OTA_PUBLIC_KEYS := vendor/lineage-priv/keys/releasekey
++PRODUCT_EXTRA_RECOVERY_KEYS := vendor/lineage-priv/keys/releasekey
++
++# Spoof to Pixel 9 Pro stock A16 (caiman)
++BUILD_FINGERPRINT := google/caiman/caiman:16/BP4A.251205.006/14401865:user/release-keys
++BUILD_NUMBER := 14401865
++
++PRODUCT_BUILD_PROP_OVERRIDES += \
++    BuildId=BP4A.251205.006 \
++    BuildDesc="caiman-user 16 BP4A.251205.006 14401865 release-keys" \
++    DeviceProduct=caiman \
++    DeviceName=caiman \
++    ProductBrand=google \
++    ProductManufacturer=Google \
++    ProductModel="Pixel 9 Pro" \
++    SystemBrand=google \
++    SystemDevice=caiman \
++    SystemManufacturer=Google \
++    SystemModel="Pixel 9 Pro" \
++    SystemName=caiman \
++    ProductModelForAttestation="Pixel 9 Pro" \
++    ProductBrandForAttestation=google \
++    ProductNameForAttestation=caiman \
++    ProductDeviceForAttestation=caiman \
++    ProductManufacturerForAttestation=Google
+-- 
+2.50.1
+
