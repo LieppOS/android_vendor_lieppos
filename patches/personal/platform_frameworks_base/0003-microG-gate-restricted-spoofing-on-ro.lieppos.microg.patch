@@ -1,0 +1,50 @@
+From 68ec84452c714e9fd65d5598de6d33e18a78956c Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Tue, 28 Apr 2026 00:42:42 +0300
+Subject: [PATCH] microG: gate restricted spoofing on
+ ro.lieppos.microg_restricted_spoofing
+
+Allow the existing restricted microG signature spoofing path when
+either ro.debuggable=1 or ro.lieppos.microg_restricted_spoofing=true,
+so user builds keep spoofing enabled without flipping to userdebug.
+
+Scope unchanged: still only com.google.android.gms / com.android.vending,
+still gated on the hardcoded NOGAPPS cert.
+
+Change-Id: I63fda64adbb63ca8cd9072831ef2dba03862b2e1
+---
+ .../core/java/com/android/server/pm/ComputerEngine.java  | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/services/core/java/com/android/server/pm/ComputerEngine.java b/services/core/java/com/android/server/pm/ComputerEngine.java
+index 1cc02de121f8..a5fcba62351b 100644
+--- a/services/core/java/com/android/server/pm/ComputerEngine.java
++++ b/services/core/java/com/android/server/pm/ComputerEngine.java
+@@ -108,6 +108,7 @@ import android.os.IBinder;
+ import android.os.ParcelableException;
+ import android.os.PatternMatcher;
+ import android.os.Process;
++import android.os.SystemProperties;
+ import android.os.Trace;
+ import android.os.UserHandle;
+ import android.os.UserManager;
+@@ -1484,9 +1485,15 @@ public class ComputerEngine implements Computer {
+     }
+ 
+     private static native boolean isDebuggable();
++    private static final String MICROG_SPOOFING_PROP =
++            "ro.lieppos.microg_restricted_spoofing";
++
++    private static boolean isMicrogSpoofingEnabled() {
++        return isDebuggable() || SystemProperties.getBoolean(MICROG_SPOOFING_PROP, false);
++    }
+ 
+     public static boolean isMicrogSigned(AndroidPackage p) {
+-        if (!isDebuggable()) {
++        if (!isMicrogSpoofingEnabled()) {
+             return false;
+         }
+ 
+-- 
+2.50.1
+

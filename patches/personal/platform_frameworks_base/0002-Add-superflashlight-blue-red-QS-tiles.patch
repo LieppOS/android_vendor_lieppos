@@ -1,0 +1,729 @@
+From 5144dd011c7a9ea5f8431645870cb19ea9d731fe Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Mon, 27 Apr 2026 00:30:47 +0300
+Subject: [PATCH] Add superflashlight,blue,red QS tiles
+
+Change-Id: Ifeeb20f0728b1866c9debd83fdc23b5324467a83
+---
+ .../SystemUI/res/drawable/qs_blue_light_icon.xml |  21 +++
+ .../SystemUI/res/drawable/qs_red_light_icon.xml  |  20 +++
+ .../res/drawable/qs_super_flashlight_icon.xml    |  20 +++
+ packages/SystemUI/res/values/config.xml          |   2 +-
+ packages/SystemUI/res/values/strings.xml         |   6 +
+ .../systemui/qs/tiles/BlueLightTile.java      |  91 +++++++
+ .../systemui/qs/tiles/RedLightTile.java       |  91 +++++++
+ .../qs/tiles/SuperFlashlightTile.java         | 247 ++++++++++++++++++
+ .../systemui/qs/tiles/YftCampLightLeds.java   | 114 ++++++++
+ .../systemui/statusbar/policy/PolicyModule.kt |  18 ++
+ 10 files changed, 625 insertions(+), 1 deletion(-)
+ create mode 100644 packages/SystemUI/res/drawable/qs_blue_light_icon.xml
+ create mode 100644 packages/SystemUI/res/drawable/qs_red_light_icon.xml
+ create mode 100644 packages/SystemUI/res/drawable/qs_super_flashlight_icon.xml
+ create mode 100644 packages/SystemUI/src/com/android/systemui/qs/tiles/BlueLightTile.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/qs/tiles/RedLightTile.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/qs/tiles/SuperFlashlightTile.java
+ create mode 100644 packages/SystemUI/src/com/android/systemui/qs/tiles/YftCampLightLeds.java
+
+diff --git a/packages/SystemUI/res/values/config.xml b/packages/SystemUI/res/values/config.xml
+index e0bc1ec0e01a..8a1efb1ec4d6 100644
+--- a/packages/SystemUI/res/values/config.xml
++++ b/packages/SystemUI/res/values/config.xml
+@@ -120,7 +120,7 @@
+ 
+     <!-- Tiles native to System UI. Order should match "quick_settings_tiles_default" -->
+     <string name="quick_settings_tiles_stock" translatable="false">
+-        internet,wifi,cell,bt,flashlight,dnd,modes_dnd,alarm,airplane,nfc,controls,wallet,rotation,battery,cast,screenrecord,mictoggle,cameratoggle,location,hotspot,inversion,saver,dark,work,night,reverse,reduce_brightness,qr_code_scanner,onehanded,color_correction,dream,font_scaling,record_issue,hearing_devices,notes,desktopeffects,ambient_display,aod,caffeine,heads_up,powershare,profiles,reading_mode,sync,usb_tether,vpn
++        internet,wifi,cell,bt,flashlight,superflashlight,redlight,bluelight,dnd,modes_dnd,alarm,airplane,nfc,controls,wallet,rotation,battery,cast,screenrecord,mictoggle,cameratoggle,location,hotspot,inversion,saver,dark,work,night,reverse,reduce_brightness,qr_code_scanner,onehanded,color_correction,dream,font_scaling,record_issue,hearing_devices,notes,desktopeffects,ambient_display,aod,caffeine,heads_up,powershare,profiles,reading_mode,sync,usb_tether,vpn
+     </string>
+ 
+     <!-- The tiles to display in QuickSettings -->
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index 20075caa7c10..2ba01dbd7da8 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -1057,6 +1057,12 @@
+     <!-- QuickSettings: Notifications [CHAR LIMIT=NONE] -->
+     <!-- QuickSettings: Flashlight [CHAR LIMIT=NONE] -->
+     <string name="quick_settings_flashlight_label">Flashlight</string>
++    <!-- QuickSettings: Red Light -->
++    <string name="quick_settings_red_light_label">Red Light</string>
++    <!-- QuickSettings: Blue Light -->
++    <string name="quick_settings_blue_light_label">Blue Light</string>
++    <!-- QuickSettings: Super Flashlight -->
++    <string name="quick_settings_super_flashlight_label">Super Flashlight</string>
+     <!-- QuickSettings: Flashlight, used when it's not available due to camera in use [CHAR LIMIT=NONE] -->
+     <string name="quick_settings_flashlight_camera_in_use">Camera in use</string>
+     <!-- Flashlight dialog title [CHAR LIMIT=NONE] -->
+diff --git a/packages/SystemUI/res/drawable/qs_blue_light_icon.xml b/packages/SystemUI/res/drawable/qs_blue_light_icon.xml
+new file mode 100644
+index 000000000000..a2657fb5cbb6
+--- /dev/null
++++ b/packages/SystemUI/res/drawable/qs_blue_light_icon.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#1f1f1f"
++        android:pathData="M8,2h8v3l-2,3v12h-4V8L8,5V2z" />
++    <path
++        android:fillColor="#1f1f1f"
++        android:pathData="M11.2,10h1.65c1.35,0 2.25,0.7 2.25,1.8c0,0.65 -0.32,1.15 -0.88,1.43c0.76,0.25 1.18,0.83 1.18,1.62c0,1.25 -0.98,2.15 -2.45,2.15H11.2V10zM12.55,11.2v1.55h0.4c0.48,0 0.78,-0.3 0.78,-0.78c0,-0.47 -0.3,-0.77 -0.78,-0.77H12.55zM12.55,13.9v1.9h0.48c0.58,0 0.95,-0.35 0.95,-0.95c0,-0.58 -0.37,-0.95 -0.95,-0.95H12.55z" />
++    <path
++        android:fillColor="#1f1f1f"
++        android:pathData="M5,7l2.4,1.4L6.6,9.8L4.2,8.4zM19,7l0.8,1.4l-2.4,1.4l-0.8,-1.4zM4,13h2.7v1.6H4zM17.3,13H20v1.6h-2.7z" />
++</vector>
+diff --git a/packages/SystemUI/res/drawable/qs_red_light_icon.xml b/packages/SystemUI/res/drawable/qs_red_light_icon.xml
+new file mode 100644
+index 000000000000..97ec4e0f3d2d
+--- /dev/null
++++ b/packages/SystemUI/res/drawable/qs_red_light_icon.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#1f1f1f"
++        android:pathData="M8,2h8v3l-2,3v12h-4V8L8,5V2z" />
++    <path
++        android:fillColor="#1f1f1f"
++        android:pathData="M10.9,10h1.85c1.48,0 2.45,0.82 2.45,2.12c0,0.88 -0.43,1.55 -1.18,1.9L15.45,17h-1.52l-1.2,-2.65h-0.47V17H10.9V10zM12.25,11.25v1.92h0.55c0.62,0 1,-0.35 1,-0.97c0,-0.6 -0.38,-0.95 -1,-0.95H12.25z" />
++    <path
++        android:fillColor="#1f1f1f"
++        android:pathData="M5,7l2.4,1.4L6.6,9.8L4.2,8.4zM19,7l0.8,1.4l-2.4,1.4l-0.8,-1.4zM4,13h2.7v1.6H4zM17.3,13H20v1.6h-2.7z" />
++</vector>
+diff --git a/packages/SystemUI/res/drawable/qs_super_flashlight_icon.xml b/packages/SystemUI/res/drawable/qs_super_flashlight_icon.xml
+new file mode 100644
+index 000000000000..3d8b8b1e2d69
+--- /dev/null
++++ b/packages/SystemUI/res/drawable/qs_super_flashlight_icon.xml
+@@ -0,0 +1,16 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#1f1f1f"
++        android:pathData="M8,2h8v3l-2,3v12h-4V8L8,5V2z" />
++    <path
++        android:fillColor="#1f1f1f"
++        android:pathData="M12.8,9l-3.2,5.2h2.15L11.1,19l3.3,-5.55h-2.1z" />
++    <path
++        android:fillColor="#1f1f1f"
++        android:pathData="M5,7l2.7,1.6L6.9,10L4.2,8.4zM19,7l0.8,1.4L17.1,10l-0.8,-1.4zM3.8,13h3v1.7h-3zM17.2,13h3v1.7h-3zM6.7,18.3l1.2,1.2l-1.8,1.8L4.9,20.1zM17.3,18.3l1.8,1.8l-1.2,1.2l-1.8,-1.8z" />
++</vector>
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/BlueLightTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/BlueLightTile.java
+new file mode 100644
+index 000000000000..cab15a026be8
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/BlueLightTile.java
+@@ -0,0 +1,91 @@
++package com.android.systemui.qs.tiles;
++
++import android.content.Context;
++import android.content.Intent;
++import android.os.Handler;
++import android.os.Looper;
++import android.service.quicksettings.Tile;
++import android.widget.Switch;
++
++import androidx.annotation.Nullable;
++
++import com.android.internal.logging.MetricsLogger;
++import com.android.systemui.animation.Expandable;
++import com.android.systemui.dagger.qualifiers.Background;
++import com.android.systemui.dagger.qualifiers.Main;
++import com.android.systemui.plugins.ActivityStarter;
++import com.android.systemui.plugins.FalsingManager;
++import com.android.systemui.plugins.qs.QSTile.BooleanState;
++import com.android.systemui.plugins.statusbar.StatusBarStateController;
++import com.android.systemui.qs.QSHost;
++import com.android.systemui.qs.QsEventLogger;
++import com.android.systemui.qs.logging.QSLogger;
++import com.android.systemui.qs.tileimpl.QSTileImpl;
++import com.android.systemui.res.R;
++
++import javax.inject.Inject;
++
++public class BlueLightTile extends QSTileImpl<BooleanState> {
++    public static final String TILE_SPEC = "bluelight";
++
++    @Inject
++    public BlueLightTile(
++            QSHost host,
++            QsEventLogger uiEventLogger,
++            @Background Looper backgroundLooper,
++            @Main Handler mainHandler,
++            FalsingManager falsingManager,
++            MetricsLogger metricsLogger,
++            StatusBarStateController statusBarStateController,
++            ActivityStarter activityStarter,
++            QSLogger qsLogger,
++            Context context
++    ) {
++        super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager,
++                metricsLogger, statusBarStateController, activityStarter, qsLogger);
++        YftCampLightLeds.syncHardwareFromSetting(context);
++    }
++
++    @Override
++    public CharSequence getTileLabel() {
++        return mContext.getString(R.string.quick_settings_blue_light_label);
++    }
++
++    @Override
++    public Intent getLongClickIntent() { return null; }
++
++    @Override
++    protected void handleLongClick(@Nullable Expandable expandable) {
++        YftCampLightLeds.setBlueFlashy(mContext);
++        refreshState();
++    }
++
++    @Override
++    protected void handleClick(@Nullable Expandable expandable) {
++        YftCampLightLeds.toggleBlue(mContext);
++        refreshState();
++    }
++
++    @Override
++    protected void handleSetListening(boolean listening) {
++        if (listening) refreshState();
++    }
++
++    @Override
++    protected void handleUpdateState(BooleanState state, Object arg) {
++        boolean on = YftCampLightLeds.isBlueOn(mContext);
++        state.value = on;
++        state.label = getTileLabel();
++        state.icon = maybeLoadResourceIcon(R.drawable.qs_blue_light_icon);
++        state.state = on ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
++        state.secondaryLabel = YftCampLightLeds.isBlueFlashy(mContext) ? "Flashy" : null;
++        state.contentDescription = state.label;
++        state.expandedAccessibilityClassName = Switch.class.getName();
++    }
++
++    @Override
++    public BooleanState newTileState() { return new BooleanState(); }
++
++    @Override
++    public int getMetricsCategory() { return 0; }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/RedLightTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/RedLightTile.java
+new file mode 100644
+index 000000000000..a141e6e10a9e
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/RedLightTile.java
+@@ -0,0 +1,91 @@
++package com.android.systemui.qs.tiles;
++
++import android.content.Context;
++import android.content.Intent;
++import android.os.Handler;
++import android.os.Looper;
++import android.service.quicksettings.Tile;
++import android.widget.Switch;
++
++import androidx.annotation.Nullable;
++
++import com.android.internal.logging.MetricsLogger;
++import com.android.systemui.animation.Expandable;
++import com.android.systemui.dagger.qualifiers.Background;
++import com.android.systemui.dagger.qualifiers.Main;
++import com.android.systemui.plugins.ActivityStarter;
++import com.android.systemui.plugins.FalsingManager;
++import com.android.systemui.plugins.qs.QSTile.BooleanState;
++import com.android.systemui.plugins.statusbar.StatusBarStateController;
++import com.android.systemui.qs.QSHost;
++import com.android.systemui.qs.QsEventLogger;
++import com.android.systemui.qs.logging.QSLogger;
++import com.android.systemui.qs.tileimpl.QSTileImpl;
++import com.android.systemui.res.R;
++
++import javax.inject.Inject;
++
++public class RedLightTile extends QSTileImpl<BooleanState> {
++    public static final String TILE_SPEC = "redlight";
++
++    @Inject
++    public RedLightTile(
++            QSHost host,
++            QsEventLogger uiEventLogger,
++            @Background Looper backgroundLooper,
++            @Main Handler mainHandler,
++            FalsingManager falsingManager,
++            MetricsLogger metricsLogger,
++            StatusBarStateController statusBarStateController,
++            ActivityStarter activityStarter,
++            QSLogger qsLogger,
++            Context context
++    ) {
++        super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager,
++                metricsLogger, statusBarStateController, activityStarter, qsLogger);
++        YftCampLightLeds.syncHardwareFromSetting(context);
++    }
++
++    @Override
++    public CharSequence getTileLabel() {
++        return mContext.getString(R.string.quick_settings_red_light_label);
++    }
++
++    @Override
++    public Intent getLongClickIntent() { return null; }
++
++    @Override
++    protected void handleLongClick(@Nullable Expandable expandable) {
++        YftCampLightLeds.setRedFlashy(mContext);
++        refreshState();
++    }
++
++    @Override
++    protected void handleClick(@Nullable Expandable expandable) {
++        YftCampLightLeds.toggleRed(mContext);
++        refreshState();
++    }
++
++    @Override
++    protected void handleSetListening(boolean listening) {
++        if (listening) refreshState();
++    }
++
++    @Override
++    protected void handleUpdateState(BooleanState state, Object arg) {
++        boolean on = YftCampLightLeds.isRedOn(mContext);
++        state.value = on;
++        state.label = getTileLabel();
++        state.icon = maybeLoadResourceIcon(R.drawable.qs_red_light_icon);
++        state.state = on ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
++        state.secondaryLabel = YftCampLightLeds.isRedFlashy(mContext) ? "Flashy" : null;
++        state.contentDescription = state.label;
++        state.expandedAccessibilityClassName = Switch.class.getName();
++    }
++
++    @Override
++    public BooleanState newTileState() { return new BooleanState(); }
++
++    @Override
++    public int getMetricsCategory() { return 0; }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/SuperFlashlightTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/SuperFlashlightTile.java
+new file mode 100644
+index 000000000000..24e79e375fd4
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/SuperFlashlightTile.java
+@@ -0,0 +1,247 @@
++package com.android.systemui.qs.tiles;
++
++import android.content.Context;
++import android.content.Intent;
++import android.os.Handler;
++import android.os.Looper;
++import android.service.quicksettings.Tile;
++import android.util.Log;
++import android.widget.Switch;
++
++import androidx.annotation.Nullable;
++
++import com.android.internal.logging.MetricsLogger;
++import com.android.systemui.animation.Expandable;
++import com.android.systemui.dagger.qualifiers.Background;
++import com.android.systemui.dagger.qualifiers.Main;
++import com.android.systemui.plugins.ActivityStarter;
++import com.android.systemui.plugins.FalsingManager;
++import com.android.systemui.plugins.qs.QSTile.BooleanState;
++import com.android.systemui.plugins.statusbar.StatusBarStateController;
++import com.android.systemui.qs.QSHost;
++import com.android.systemui.qs.QsEventLogger;
++import com.android.systemui.qs.logging.QSLogger;
++import com.android.systemui.qs.tileimpl.QSTileImpl;
++import com.android.systemui.res.R;
++
++import java.io.FileInputStream;
++import java.io.FileOutputStream;
++import java.nio.charset.StandardCharsets;
++
++import javax.inject.Inject;
++
++public class SuperFlashlightTile extends QSTileImpl<BooleanState> {
++    public static final String TILE_SPEC = "superflashlight";
++    private static final String TAG = "SuperFlashlightTile";
++
++    private static final String MODE =
++            "/sys/devices/platform/yft_camplight/camplight_mode";
++    private static final String BRIGHT =
++            "/sys/devices/platform/yft_camplight/camplight_set_brightness";
++
++    private static final int[] LEVELS = new int[]{ 1, 25, 50, 75, 90 };
++
++    private static final int MODE_OFF = 0;
++    private static final int MODE_ON  = 1;
++
++    private static final int DOT = 200;
++    private static final int DASH = 600;
++    private static final int INTRA = 200;
++    private static final int LETTER_GAP = 600;
++    private static final int WORD_GAP = 1400;
++
++    private static final int[] SOS_PATTERN = new int[] {
++            DOT, -INTRA, DOT, -INTRA, DOT, -LETTER_GAP,
++            DASH, -INTRA, DASH, -INTRA, DASH, -LETTER_GAP,
++            DOT, -INTRA, DOT, -INTRA, DOT, -WORD_GAP
++    };
++
++    private final Handler mMainHandler;
++
++    private int mLevelIndex = -1;
++    private boolean mSteadyOn = false;
++
++    private boolean mSosRunning = false;
++    private int mSosStep = 0;
++
++    private int mSavedLevelIndex = -1;
++    private boolean mSavedSteadyOn = false;
++
++    private final Runnable mSosRunnable = new Runnable() {
++        @Override
++        public void run() {
++            if (!mSosRunning) return;
++            if (mSosStep >= SOS_PATTERN.length) mSosStep = 0;
++            int step = SOS_PATTERN[mSosStep++];
++            if (step > 0) {
++                writeSysfs(BRIGHT, Integer.toString(LEVELS[LEVELS.length - 1]));
++                writeSysfs(MODE, Integer.toString(MODE_ON));
++                mMainHandler.postDelayed(this, step);
++            } else {
++                writeSysfs(MODE, Integer.toString(MODE_OFF));
++                writeSysfs(BRIGHT, "0");
++                mMainHandler.postDelayed(this, -step);
++            }
++        }
++    };
++
++    @Inject
++    public SuperFlashlightTile(
++            QSHost host,
++            QsEventLogger uiEventLogger,
++            @Background Looper backgroundLooper,
++            @Main Handler mainHandler,
++            FalsingManager falsingManager,
++            MetricsLogger metricsLogger,
++            StatusBarStateController statusBarStateController,
++            ActivityStarter activityStarter,
++            QSLogger qsLogger,
++            Context context
++    ) {
++        super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager,
++                metricsLogger, statusBarStateController, activityStarter, qsLogger);
++        mMainHandler = mainHandler;
++        int b = readSysfsInt(BRIGHT);
++        if (b != 0) {
++            mSteadyOn = true;
++            mLevelIndex = 0;
++        }
++    }
++
++    @Override
++    public CharSequence getTileLabel() {
++        return mContext.getString(R.string.quick_settings_super_flashlight_label);
++    }
++
++    @Override
++    public Intent getLongClickIntent() { return null; }
++
++    @Override
++    protected void handleSetListening(boolean listening) {
++        if (!listening) stopSos(false);
++    }
++
++    @Override
++    protected void handleClick(@Nullable Expandable expandable) {
++        if (mSosRunning) {
++            stopSos(true);
++            refreshSoon();
++            return;
++        }
++        if (!mSteadyOn) {
++            mLevelIndex = 0;
++            mSteadyOn = true;
++            applySteadyLevel(mLevelIndex);
++        } else {
++            mLevelIndex++;
++            if (mLevelIndex >= LEVELS.length) {
++                mLevelIndex = -1;
++                mSteadyOn = false;
++                turnOff();
++            } else {
++                applySteadyLevel(mLevelIndex);
++            }
++        }
++        refreshSoon();
++    }
++
++    protected void handleSecondaryClick(@Nullable Expandable expandable) {
++        startSos();
++        refreshSoon();
++    }
++
++    protected void handleLongClick(@Nullable Expandable expandable) {
++        startSos();
++        refreshSoon();
++    }
++
++    @Override
++    protected void handleUpdateState(BooleanState state, Object arg) {
++        boolean active = mSosRunning || mSteadyOn;
++        state.value = active;
++        state.label = getTileLabel();
++        state.icon = maybeLoadResourceIcon(R.drawable.qs_super_flashlight_icon);
++        state.state = active ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
++        state.contentDescription = state.label;
++        state.expandedAccessibilityClassName = Switch.class.getName();
++        try {
++            if (mSosRunning) {
++                state.secondaryLabel = "SOS";
++            } else if (mSteadyOn && mLevelIndex >= 0 && mLevelIndex < LEVELS.length) {
++                state.secondaryLabel = String.valueOf(LEVELS[mLevelIndex]);
++            } else {
++                state.secondaryLabel = null;
++            }
++        } catch (Throwable ignored) {}
++    }
++
++    @Override
++    public BooleanState newTileState() { return new BooleanState(); }
++
++    @Override
++    public int getMetricsCategory() { return 0; }
++
++    private void refreshSoon() {
++        refreshState();
++        mMainHandler.postDelayed(this::refreshState, 120);
++        mMainHandler.postDelayed(this::refreshState, 350);
++    }
++
++    private void startSos() {
++        if (mSosRunning) return;
++        mSavedSteadyOn = mSteadyOn;
++        mSavedLevelIndex = mLevelIndex;
++        mSosRunning = true;
++        mSosStep = 0;
++        mMainHandler.removeCallbacks(mSosRunnable);
++        mMainHandler.post(mSosRunnable);
++    }
++
++    private void stopSos(boolean restorePrevious) {
++        if (!mSosRunning) return;
++        mSosRunning = false;
++        mMainHandler.removeCallbacks(mSosRunnable);
++        turnOff();
++        if (restorePrevious && mSavedSteadyOn && mSavedLevelIndex >= 0 && mSavedLevelIndex < LEVELS.length) {
++            mSteadyOn = true;
++            mLevelIndex = mSavedLevelIndex;
++            applySteadyLevel(mLevelIndex);
++        } else {
++            mSteadyOn = false;
++            mLevelIndex = -1;
++        }
++    }
++
++    private static void applySteadyLevel(int idx) {
++        if (idx < 0) idx = 0;
++        if (idx >= LEVELS.length) idx = LEVELS.length - 1;
++        writeSysfs(BRIGHT, Integer.toString(LEVELS[idx]));
++        writeSysfs(MODE, Integer.toString(MODE_ON));
++        writeSysfs(MODE, Integer.toString(MODE_ON));
++    }
++
++    private static void turnOff() {
++        writeSysfs(MODE, Integer.toString(MODE_OFF));
++        writeSysfs(BRIGHT, "0");
++    }
++
++    private static void writeSysfs(String path, String v) {
++        try (FileOutputStream fos = new FileOutputStream(path)) {
++            fos.write((v + "\n").getBytes(StandardCharsets.US_ASCII));
++        } catch (Throwable t) {
++            Log.e(TAG, "writeSysfs failed: " + path + " <- " + v, t);
++        }
++    }
++
++    private static int readSysfsInt(String path) {
++        try (FileInputStream fis = new FileInputStream(path)) {
++            byte[] buf = new byte[64];
++            int n = fis.read(buf);
++            if (n <= 0) return 0;
++            String s = new String(buf, 0, n, StandardCharsets.US_ASCII).trim();
++            return Integer.parseInt(s);
++        } catch (Throwable t) {
++            return 0;
++        }
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/YftCampLightLeds.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/YftCampLightLeds.java
+new file mode 100644
+index 000000000000..b5ac1e5a5f4d
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/YftCampLightLeds.java
+@@ -0,0 +1,114 @@
++package com.android.systemui.qs.tiles;
++
++import android.content.Context;
++import android.os.UserHandle;
++import android.provider.Settings;
++import android.util.Log;
++
++import java.io.FileOutputStream;
++import java.nio.charset.StandardCharsets;
++
++final class YftCampLightLeds {
++    private static final String TAG = "YftCampLightLeds";
++    static final String CTL = "/sys/devices/platform/yft_camplight/leds_ctl";
++    static final String POWER_CTRL = "/sys/devices/platform/yft_camplight/power/control";
++    static final String SETTING = "sysui_yft_camplight_leds_mode";
++
++    private static final int MODE_OFF = 0;
++    private static final int MODE_RED = 1;
++    private static final int MODE_BLUE = 2;
++    private static final int MODE_RED_BLUE = 3;
++    private static final int MODE_RED_FLASHY = 4;
++    private static final int MODE_BLUE_FLASHY = 5;
++    private static final int MODE_RED_BLUE_FLASHY = 6;
++
++    static int getMode(Context c) {
++        int mode = Settings.Secure.getIntForUser(
++                c.getContentResolver(), SETTING, MODE_OFF, UserHandle.USER_CURRENT
++        );
++        return mode >= MODE_OFF && mode <= MODE_RED_BLUE_FLASHY ? mode : MODE_OFF;
++    }
++
++    static void setMode(Context c, int mode) {
++        if (mode < MODE_OFF || mode > MODE_RED_BLUE_FLASHY) {
++            mode = MODE_OFF;
++        }
++        Settings.Secure.putIntForUser(
++                c.getContentResolver(), SETTING, mode, UserHandle.USER_CURRENT
++        );
++        applyMode(mode);
++    }
++
++    static void syncHardwareFromSetting(Context c) {
++        applyMode(getMode(c));
++    }
++
++    static boolean isRedOn(Context c) {
++        return (getLightMask(getMode(c)) & MODE_RED) != 0;
++    }
++
++    static boolean isBlueOn(Context c) {
++        return (getLightMask(getMode(c)) & MODE_BLUE) != 0;
++    }
++
++    static boolean isRedFlashy(Context c) {
++        int mode = getMode(c);
++        return mode == MODE_RED_FLASHY || mode == MODE_RED_BLUE_FLASHY;
++    }
++
++    static boolean isBlueFlashy(Context c) {
++        int mode = getMode(c);
++        return mode == MODE_BLUE_FLASHY || mode == MODE_RED_BLUE_FLASHY;
++    }
++
++    static void toggleRed(Context c) {
++        setMode(c, getLightMask(getMode(c)) ^ MODE_RED);
++    }
++
++    static void toggleBlue(Context c) {
++        setMode(c, getLightMask(getMode(c)) ^ MODE_BLUE);
++    }
++
++    static void setRedFlashy(Context c) {
++        setMode(c, getLightMask(getMode(c)) == MODE_RED_BLUE
++                ? MODE_RED_BLUE_FLASHY : MODE_RED_FLASHY);
++    }
++
++    static void setBlueFlashy(Context c) {
++        setMode(c, getLightMask(getMode(c)) == MODE_RED_BLUE
++                ? MODE_RED_BLUE_FLASHY : MODE_BLUE_FLASHY);
++    }
++
++    private static void applyMode(int mode) {
++        writeString(POWER_CTRL, "on");
++        writeString(CTL, Integer.toString(mode));
++    }
++
++    private static int getLightMask(int mode) {
++        switch (mode) {
++            case MODE_RED:
++            case MODE_RED_FLASHY:
++                return MODE_RED;
++            case MODE_BLUE:
++            case MODE_BLUE_FLASHY:
++                return MODE_BLUE;
++            case MODE_RED_BLUE:
++            case MODE_RED_BLUE_FLASHY:
++                return MODE_RED_BLUE;
++            case MODE_OFF:
++            default:
++                return MODE_OFF;
++        }
++    }
++
++    private static void writeString(String path, String v) {
++        try (FileOutputStream fos = new FileOutputStream(path)) {
++            fos.write(v.getBytes(StandardCharsets.US_ASCII));
++            fos.write('\n');
++        } catch (Throwable t) {
++            Log.e(TAG, "write failed: " + path + " <- " + v, t);
++        }
++    }
++
++    private YftCampLightLeds() {}
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt b/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
+index 4c2484103b55..f07593387fde 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
+@@ -31,8 +31,11 @@ import com.android.systemui.qs.shared.model.TileCategory
+ import com.android.systemui.qs.tileimpl.QSTileImpl
+ import com.android.systemui.qs.tiles.AlarmTile
+ import com.android.systemui.qs.tiles.CameraToggleTile
++import com.android.systemui.qs.tiles.BlueLightTile
+ import com.android.systemui.qs.tiles.FlashlightTile
+ import com.android.systemui.qs.tiles.FlashlightTileWithLevel
++import com.android.systemui.qs.tiles.RedLightTile
++import com.android.systemui.qs.tiles.SuperFlashlightTile
+ import com.android.systemui.qs.tiles.LocationTile
+ import com.android.systemui.qs.tiles.MicrophoneToggleTile
+ import com.android.systemui.qs.tiles.ModesDndTile
+@@ -490,6 +493,21 @@ interface PolicyModule {
+         }
+     }
+ 
++    @Binds
++    @IntoMap
++    @StringKey(RedLightTile.TILE_SPEC)
++    fun bindRedLightTile(tile: RedLightTile): QSTileImpl<*>
++
++    @Binds
++    @IntoMap
++    @StringKey(BlueLightTile.TILE_SPEC)
++    fun bindBlueLightTile(tile: BlueLightTile): QSTileImpl<*>
++
++    @Binds
++    @IntoMap
++    @StringKey(SuperFlashlightTile.TILE_SPEC)
++    fun bindSuperFlashlightTile(tile: SuperFlashlightTile): QSTileImpl<*>
++
+     /** Inject LocationTile into tileMap in QSModule */
+     @Binds
+     @IntoMap
+-- 
+2.50.1

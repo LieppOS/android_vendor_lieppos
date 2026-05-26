@@ -1,0 +1,66 @@
+From 48dac5b580a6857522f09413a0068a72bccaf18b Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Tue, 28 Apr 2026 23:39:32 +0300
+Subject: [PATCH] AppOps: allow signed microG phone package attribution
+
+Change-Id: I9ae66b262898d8ad0b03e75b66bfe9577ec2320a
+---
+ .../android/server/appop/AppOpsService.java   | 28 +++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/services/core/java/com/android/server/appop/AppOpsService.java b/services/core/java/com/android/server/appop/AppOpsService.java
+index 93349d708daf..a911919b46d5 100644
+--- a/services/core/java/com/android/server/appop/AppOpsService.java
++++ b/services/core/java/com/android/server/appop/AppOpsService.java
+@@ -80,6 +80,7 @@ import static com.android.internal.util.FrameworkStatsLog.APP_OP_NOTE_OP_OR_CHEC
+ import static com.android.internal.util.FrameworkStatsLog.APP_OP_NOTE_OP_OR_CHECK_OP_BINDER_API_CALLED__BINDER_API__NOTE_OPERATION;
+ import static com.android.internal.util.FrameworkStatsLog.APP_OP_NOTE_OP_OR_CHECK_OP_BINDER_API_CALLED__BINDER_API__NOTE_PROXY_OPERATION;
+ import static com.android.server.appop.AppOpsService.ModeCallback.ALL_OPS;
++import static com.android.server.pm.ComputerEngine.isMicrogSigned;
+ 
+ import android.Manifest;
+ import android.annotation.NonNull;
+@@ -4938,6 +4939,27 @@ public class AppOpsService extends IAppOpsService.Stub {
+                 packageState.getAppId()) == PackageManager.PERMISSION_GRANTED);
+     }
+ 
++    private @Nullable PackageVerificationResult getMicrogPhonePackageCompatBypass(int uid,
++            @Nullable String packageName, int proxyUid, @Nullable String proxyPackageName,
++            boolean isProxyTrusted) {
++        if (!"com.android.phone".equals(packageName)) {
++            return null;
++        }
++
++        PackageState packageState = getPackageManagerInternal().getPackageStateInternal(
++                "com.google.android.gms");
++        AndroidPackage pkg = packageState == null ? null : packageState.getAndroidPackage();
++        int userId = UserHandle.getUserId(uid);
++        if (pkg == null || UserHandle.getUid(userId, packageState.getAppId()) != uid
++                || !isMicrogSigned(pkg)) {
++            return null;
++        }
++
++        return new PackageVerificationResult(getBypassforPackage(packageState),
++                /* isAttributionTagValid */ isProxyTrusted
++                && isPackageNullOrSystem(proxyPackageName, proxyUid));
++    }
++
+     /**
+      * @see #verifyAndGetBypass(int, String, String, int, String, boolean, boolean)
+      */
+@@ -5035,6 +5057,12 @@ public class AppOpsService extends IAppOpsService.Stub {
+         }
+         if (nonAppUid != Process.INVALID_UID) {
+             if (nonAppUid != UserHandle.getAppId(uid)) {
++                PackageVerificationResult microgCompatBypass =
++                        getMicrogPhonePackageCompatBypass(uid, packageName, proxyUid,
++                                proxyPackageName, isProxyTrusted);
++                if (microgCompatBypass != null) {
++                    return microgCompatBypass;
++                }
+                 if (!suppressErrorLogs) {
+                     Slog.e(TAG, "Bad call made by uid " + callingUid + ". "
+                                 + "Package \"" + packageName + "\" does not belong to uid " + uid
+-- 
+2.50.1
+
