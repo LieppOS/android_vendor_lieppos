@@ -1,0 +1,27 @@
+From 070059eb858b14683bf367b1cdf43dde152ae279 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Sun, 26 Apr 2026 23:05:18 +0300
+Subject: [PATCH 3/4] version: LieppOS- prefix on ro.lineage.display.version
+
+Brand display version as LieppOS so the About screen reads LieppOS-23.x-... instead of vanilla LineageOS.
+
+Change-Id: I2c5d0ec7ce77bb4b7824e1960b3bd48d8b432cbc
+---
+ config/version.mk | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/config/version.mk b/config/version.mk
+index f0a83e4f..ea0498ac 100644
+--- a/config/version.mk
++++ b/config/version.mk
+@@ -40,6 +40,6 @@ LINEAGE_DISPLAY_VERSION := $(PRODUCT_VERSION_MAJOR)-$(LINEAGE_VERSION_SUFFIX)
+ # LineageOS version properties
+ PRODUCT_PRODUCT_PROPERTIES += \
+     ro.lineage.version=$(LINEAGE_VERSION) \
+-    ro.lineage.display.version=$(LINEAGE_DISPLAY_VERSION) \
++    ro.lineage.display.version=LieppOS-$(LINEAGE_DISPLAY_VERSION) \
+     ro.lineage.build.version=$(PRODUCT_VERSION_MAJOR).$(PRODUCT_VERSION_MINOR) \
+     ro.lineage.releasetype=$(LINEAGE_BUILDTYPE)
+-- 
+2.50.1
+

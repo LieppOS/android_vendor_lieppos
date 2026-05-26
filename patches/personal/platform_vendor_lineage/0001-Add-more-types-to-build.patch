@@ -1,0 +1,18 @@
+From c65a0f8efceb1d86d5318a989005099227f0794f Mon Sep 17 00:00:00 2001
+From: MisterZtr <andey2004586@gmail.com>
+Date: Sun Dec 8 12:50:53 2024 +0300
+Subject: [PATCH] Add more types to build
+
+diff --git a/config/version.mk b/config/version.mk
+index eae8efbb..552d4f27 100644
+--- a/config/version.mk
++++ b/config/version.mk
+@@ -18,7 +18,7 @@ ifndef LINEAGE_BUILDTYPE
+ endif
+ 
+ # Filter out random types, so it'll reset to UNOFFICIAL
+-ifeq ($(filter RELEASE NIGHTLY SNAPSHOT EXPERIMENTAL,$(LINEAGE_BUILDTYPE)),)
++ifeq ($(filter RELEASE NIGHTLY SNAPSHOT EXPERIMENTAL VANILLA GAPPS,$(LINEAGE_BUILDTYPE)),)
+     LINEAGE_BUILDTYPE := UNOFFICIAL
+     LINEAGE_EXTRAVERSION :=
+ endif

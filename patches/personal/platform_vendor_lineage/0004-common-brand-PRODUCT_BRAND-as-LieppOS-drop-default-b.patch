@@ -1,0 +1,38 @@
+From c7d259f4893c8f1f38edab47a0b25b2f674ec0b7 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Sun, 26 Apr 2026 23:05:18 +0300
+Subject: [PATCH 4/4] common: brand PRODUCT_BRAND as LieppOS, drop default
+ bootanimation.zip
+
+Override default brand and remove vanilla bootanimation packages so a per-LieppOS bootanim can be substituted.
+
+Change-Id: Ic1d9a55e81048fbb3b2365833722d113aa57f6f5
+---
+ config/common.mk | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/config/common.mk b/config/common.mk
+index 2e1959e0..4bafc6e0 100644
+--- a/config/common.mk
++++ b/config/common.mk
+@@ -4,7 +4,7 @@ $(call inherit-product-if-exists, vendor/extra/product.mk)
+ # Allow vendor prebuilt repos to exclude themselves from bp scanning
+ -include $(sort $(wildcard vendor/*/*/exclude-bp.mk))
+ 
+-PRODUCT_BRAND ?= LineageOS
++PRODUCT_BRAND ?= LieppOS
+ 
+ ifeq ($(PRODUCT_GMS_CLIENTID_BASE),)
+ PRODUCT_PRODUCT_PROPERTIES += \
+@@ -133,8 +133,6 @@ endif
+ TARGET_SCREEN_WIDTH ?= 1080
+ TARGET_SCREEN_HEIGHT ?= 1920
+ PRODUCT_PACKAGES += \
+-    bootanimation.zip \
+-    bootanimation-dark.zip
+ 
+ # Lineage interfaces
+ PRODUCT_PACKAGES += \
+-- 
+2.50.1
+

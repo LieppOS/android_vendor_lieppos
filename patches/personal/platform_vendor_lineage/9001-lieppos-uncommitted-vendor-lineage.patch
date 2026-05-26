@@ -1,0 +1,76 @@
+From 0fd780a8d64d27af461c6534dd8eb75518500ddf Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Fri, 22 May 2026 02:16:12 +0300
+Subject: [PATCH] LieppOS uncommitted WIP: vendor/lineage
+
+Change-Id: Ibc3a13e28a95cf899d65eaf1ded5167101b4333a
+---
+ config/common_car.mk     |  5 -----
+ config/common_full_tv.mk |  4 ----
+ config/common_mini_tv.mk |  4 ----
+ config/common_tv.mk      | 19 -------------------
+ 4 files changed, 32 deletions(-)
+ delete mode 100644 config/common_car.mk
+ delete mode 100644 config/common_full_tv.mk
+ delete mode 100644 config/common_mini_tv.mk
+ delete mode 100644 config/common_tv.mk
+
+diff --git a/config/common_car.mk b/config/common_car.mk
+deleted file mode 100644
+index 868e9733..00000000
+--- a/config/common_car.mk
++++ /dev/null
+@@ -1,5 +0,0 @@
+-# Inherit common Lineage stuff
+-$(call inherit-product, vendor/lineage/config/common.mk)
+-
+-# Inherit Lineage car device tree
+-$(call inherit-product, device/lineage/car/lineage_car.mk)
+diff --git a/config/common_full_tv.mk b/config/common_full_tv.mk
+deleted file mode 100644
+index 416fed01..00000000
+--- a/config/common_full_tv.mk
++++ /dev/null
+@@ -1,4 +0,0 @@
+-# This config is for legacy purposes, there are no atv product size variants
+-
+-# Inherit common atv Lineage stuff
+-$(call inherit-product, vendor/lineage/config/common_tv.mk)
+diff --git a/config/common_mini_tv.mk b/config/common_mini_tv.mk
+deleted file mode 100644
+index 416fed01..00000000
+--- a/config/common_mini_tv.mk
++++ /dev/null
+@@ -1,4 +0,0 @@
+-# This config is for legacy purposes, there are no atv product size variants
+-
+-# Inherit common atv Lineage stuff
+-$(call inherit-product, vendor/lineage/config/common_tv.mk)
+diff --git a/config/common_tv.mk b/config/common_tv.mk
+deleted file mode 100644
+index a5dcb01e..00000000
+--- a/config/common_tv.mk
++++ /dev/null
+@@ -1,19 +0,0 @@
+-# Inherit common Lineage stuff
+-$(call inherit-product, vendor/lineage/config/common.mk)
+-
+-# Include AOSP audio files
+-$(call inherit-product-if-exists, frameworks/base/data/sounds/AudioTv.mk)
+-
+-# Inherit Lineage atv device tree
+-$(call inherit-product, device/lineage/atv/lineage_atv.mk)
+-
+-# AOSP packages
+-PRODUCT_PACKAGES += \
+-    LeanbackIME
+-
+-# Lineage packages
+-PRODUCT_PACKAGES += \
+-    Catapult \
+-    LineageCustomizer
+-
+-PRODUCT_PACKAGE_OVERLAYS += vendor/lineage/overlay/tv
+-- 
+2.50.1
+
