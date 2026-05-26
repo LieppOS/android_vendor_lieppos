@@ -1,0 +1,28 @@
+From abecbaa565bbb7ba6a19d3ee0b558901c0e54275 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Sun, 26 Apr 2026 23:03:25 +0300
+Subject: [PATCH] imgdiag: disable debug-section compression for
+ art_imgdiag_tests
+
+llvm-objcopy --decompress-debug-sections fails on lld-emitted zstd output (toolchain or Threadripper-lld race). Force uncompressed debug for this binary so the strip --keep-mini-debug-info path succeeds.
+
+Change-Id: I63f287d863b4a9b30fcece6c4cac055880cc3223
+---
+ imgdiag/Android.bp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/imgdiag/Android.bp b/imgdiag/Android.bp
+index c20d30b9ac..5cb392498c 100644
+--- a/imgdiag/Android.bp
++++ b/imgdiag/Android.bp
+@@ -99,6 +99,7 @@ art_cc_test {
+         "art_gtest_defaults",
+     ],
+     srcs: ["imgdiag_test.cc"],
++    ldflags: ["-Wl,--compress-debug-sections=none"],
+     target: {
+         host: {
+             required: [
+-- 
+2.50.1
+

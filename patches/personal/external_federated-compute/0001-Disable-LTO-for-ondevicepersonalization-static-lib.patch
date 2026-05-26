@@ -1,0 +1,29 @@
+From accb9f2394ee349adcb191a1155d78344726b70b Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Tue, 28 Apr 2026 00:43:43 +0300
+Subject: [PATCH] Disable LTO for ondevicepersonalization static lib
+
+LTO triggered build failure on this static lib; opt out via lto.never.
+
+Change-Id: I5ebde573408e4efedec4f8517fe90b4b69eeae2e
+---
+ Android.bp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/Android.bp b/Android.bp
+index 28d5d60..f76a9c6 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -150,6 +150,9 @@ cc_library_static {
+     sdk_version: "current",
+     apex_available: ["com.android.ondevicepersonalization"],
+     min_sdk_version: "33",
++    lto: {
++        never: true,
++    },
+ }
+ 
+ filegroup {
+-- 
+2.50.1
+

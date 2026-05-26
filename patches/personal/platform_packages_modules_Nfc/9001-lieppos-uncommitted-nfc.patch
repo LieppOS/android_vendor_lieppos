@@ -1,0 +1,185 @@
+From c53d45d49e38784c42d8c7721631a5d96b41f822 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Fri, 22 May 2026 02:16:11 +0300
+Subject: [PATCH] LieppOS uncommitted WIP: packages/modules/Nfc
+
+Change-Id: I26f9a8e426e3196581713d7326698e9127cae023
+---
+ NfcNci/AndroidManifest.xml                 |  3 +-
+ NfcNci/nci/jni/NativeNfcManager.cpp        | 39 +++++++++++++++++-----
+ NfcNci/src/com/android/nfc/NfcService.java |  3 +-
+ libnfc-nci/src/adaptation/NfcAdaptation.cc | 11 ++++--
+ 4 files changed, 41 insertions(+), 15 deletions(-)
+
+diff --git a/NfcNci/AndroidManifest.xml b/NfcNci/AndroidManifest.xml
+index e6998dddb..91a455435 100755
+--- a/NfcNci/AndroidManifest.xml
++++ b/NfcNci/AndroidManifest.xml
+@@ -86,7 +86,8 @@
+                  android:usesCleartextTraffic="false"
+                  android:supportsRtl="true"
+                  android:hardwareAccelerated="false"
+-                 android:memtagMode="async"
++                 android:memtagMode="off"
++                 android:allowNativeHeapPointerTagging="false"
+                  android:directBootAware="true"
+                  android:defaultToDeviceProtectedStorage="true">
+         <meta-data android:name="com.google.android.backup.api_key"
+diff --git a/NfcNci/nci/jni/NativeNfcManager.cpp b/NfcNci/nci/jni/NativeNfcManager.cpp
+index f2fa9a796..77a103f13 100644
+--- a/NfcNci/nci/jni/NativeNfcManager.cpp
++++ b/NfcNci/nci/jni/NativeNfcManager.cpp
+@@ -176,6 +176,7 @@ static bool sIsShuttingDown = false;
+ #define DEFAULT_DISCOVERY_DURATION 500
+ #define READER_MODE_DISCOVERY_DURATION 200
+ #define FLAG_SET_DEFAULT_TECH 0x40000000
++static constexpr long kVendorCallbackTimeoutMs = 5000;
+ 
+ static void nfaConnectionCallback(uint8_t event, tNFA_CONN_EVT_DATA* eventData);
+ static void nfaDeviceManagementCallback(uint8_t event,
+@@ -1941,7 +1942,10 @@ static void nfcManager_enableDiscovery(JNIEnv* e, jobject o,
+         tNFA_STATUS status = NFA_EnableListening();
+ 
+         if (status == NFA_STATUS_OK) {
+-          sNfaEnableDisablePollingEvent.wait();
++          if (!sNfaEnableDisablePollingEvent.wait(kVendorCallbackTimeoutMs)) {
++            LOG(ERROR) << StringPrintf(
++                "%s: NFA_EnableListening() timeout", __func__);
++          }
+         }
+ 
+         // configure NFCC_CONFIG_CONTROL- NFCC allowed to manage RF configuration.
+@@ -1964,7 +1968,10 @@ static void nfcManager_enableDiscovery(JNIEnv* e, jobject o,
+       tNFA_STATUS status = NFA_EnableListening();
+ 
+       if (status == NFA_STATUS_OK) {
+-        sNfaEnableDisablePollingEvent.wait();
++        if (!sNfaEnableDisablePollingEvent.wait(kVendorCallbackTimeoutMs)) {
++          LOG(ERROR) << StringPrintf(
++              "%s: NFA_EnableListening() timeout", __func__);
++        }
+       }
+ 
+       // configure NFCC_CONFIG_CONTROL- NFCC allowed to manage RF configuration.
+@@ -2715,7 +2722,10 @@ static void nfcManager_setDiscoveryTech(JNIEnv* e, jobject o, jint pollTech,
+ 
+   if (nfaStat == NFA_STATUS_OK) {
+     // wait for NFA_LISTEN_DISABLED_EVT
+-    sNfaEnableDisablePollingEvent.wait();
++    if (!sNfaEnableDisablePollingEvent.wait(kVendorCallbackTimeoutMs)) {
++      LOG(ERROR) << StringPrintf("%s: NFA_ChangeDiscoveryTech() timeout",
++                                 __func__);
++    }
+   } else {
+     LOG(ERROR) << StringPrintf("%s: fail disable polling; error=0x%X", __func__,
+                                nfaStat);
+@@ -2749,7 +2759,10 @@ static void nfcManager_resetDiscoveryTech(JNIEnv* e, jobject o) {
+ 
+   if (nfaStat == NFA_STATUS_OK) {
+     // wait for NFA_LISTEN_DISABLED_EVT
+-    sNfaEnableDisablePollingEvent.wait();
++    if (!sNfaEnableDisablePollingEvent.wait(kVendorCallbackTimeoutMs)) {
++      LOG(ERROR) << StringPrintf("%s: NFA_ChangeDiscoveryTech() timeout",
++                                 __func__);
++    }
+   } else {
+     LOG(ERROR) << StringPrintf("%s: fail disable polling; error=0x%X", __func__,
+                                nfaStat);
+@@ -3032,9 +3045,13 @@ void startRfDiscovery(bool isStart) {
+   status = isStart ? NFA_StartRfDiscovery() : NFA_StopRfDiscovery();
+   if (!sIsRecovering) {
+     if (status == NFA_STATUS_OK) {
+-      sNfaEnableDisablePollingEvent
+-          .wait();  // wait for NFA_RF_DISCOVERY_xxxx_EVT
+-      sRfEnabled = isStart;
++      if (sNfaEnableDisablePollingEvent.wait(kVendorCallbackTimeoutMs)) {
++        sRfEnabled = isStart;
++      } else {
++        LOG(ERROR) << StringPrintf(
++            "%s: NFA_%sRfDiscovery() timeout", __func__,
++            isStart ? "Start" : "Stop");
++      }
+     } else {
+       LOG(ERROR) << StringPrintf(
+           "%s: Failed to start/stop RF discovery; error=0x%X", __func__,
+@@ -3162,7 +3179,9 @@ static tNFA_STATUS startPolling_rfDiscoveryDisabled(
+   if (stat == NFA_STATUS_OK) {
+     LOG(DEBUG) << StringPrintf("%s: wait for enable event", __func__);
+     sPollingEnabled = true;
+-    sNfaEnableDisablePollingEvent.wait();  // wait for NFA_POLL_ENABLED_EVT
++    if (!sNfaEnableDisablePollingEvent.wait(kVendorCallbackTimeoutMs)) {
++      LOG(ERROR) << StringPrintf("%s: NFA_EnablePolling() timeout", __func__);
++    }
+   } else {
+     LOG(ERROR) << StringPrintf("%s: fail enable polling; error=0x%X", __func__,
+                                stat);
+@@ -3182,7 +3201,9 @@ static tNFA_STATUS stopPolling_rfDiscoveryDisabled() {
+   if (!sIsRecovering) {
+     if (stat == NFA_STATUS_OK) {
+       sPollingEnabled = false;
+-      sNfaEnableDisablePollingEvent.wait();  // wait for NFA_POLL_DISABLED_EVT
++      if (!sNfaEnableDisablePollingEvent.wait(kVendorCallbackTimeoutMs)) {
++        LOG(ERROR) << StringPrintf("%s: NFA_DisablePolling() timeout", __func__);
++      }
+     } else {
+       LOG(ERROR) << StringPrintf("%s: fail disable polling; error=0x%X",
+                                  __func__, stat);
+diff --git a/NfcNci/src/com/android/nfc/NfcService.java b/NfcNci/src/com/android/nfc/NfcService.java
+index 3a9532965..a768f1b87 100644
+--- a/NfcNci/src/com/android/nfc/NfcService.java
++++ b/NfcNci/src/com/android/nfc/NfcService.java
+@@ -302,7 +302,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback
+ 
+     // Time to wait for routing to be applied before watchdog
+     // goes off
+-    static final int ROUTING_WATCHDOG_MS = 6000;
++    static final int ROUTING_WATCHDOG_MS = 60000;
+ 
+     // Default delay used for presence checks
+     static final int DEFAULT_PRESENCE_CHECK_DELAY = 125;
+@@ -6663,4 +6663,3 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback
+         return result;
+     }
+ }
+-
+diff --git a/libnfc-nci/src/adaptation/NfcAdaptation.cc b/libnfc-nci/src/adaptation/NfcAdaptation.cc
+index 9f2717bf5..d186df9b3 100644
+--- a/libnfc-nci/src/adaptation/NfcAdaptation.cc
++++ b/libnfc-nci/src/adaptation/NfcAdaptation.cc
+@@ -34,6 +34,7 @@
+ 
+ #include <future>
+ #include <thread>
++#include <unistd.h>
+ 
+ #include "NfcVendorExtn.h"
+ #include "debug_nfcsnoop.h"
+@@ -192,10 +193,13 @@ void initializeNfcMuteTechRouteOptionFlag() {
+ 
+ // Abort nfc service when AIDL process died.
+ void HalAidlBinderDied(void* /* cookie */) {
+-  LOG(ERROR) << StringPrintf("%s: INfc aidl hal died, exiting procces to restart", __func__);
++  LOG(ERROR) << StringPrintf(
++      "%s: INfc aidl hal died, exiting process to restart", __func__);
+   storeNfcSnoopLogs(DEFAULT_CRASH_LOGS_PATH, DEFAULT_NFCSNOOP_FILE_SIZE);
+   notifyHalBinderDied();
+-  exit(0);
++  // Do not run process finalizers here. Zygisk modules loaded into app_process
++  // can crash in __cxa_finalize during NFC HAL death recovery.
++  _exit(0);
+ }
+ 
+ }  // namespace
+@@ -267,7 +271,8 @@ class NfcHalDeathRecipient : public hidl_death_recipient {
+     }
+     mNfcDeathHal = NULL;
+     notifyHalBinderDied();
+-    exit(0);
++    // Keep HAL death recovery out of injected-library finalizers.
++    _exit(0);
+   }
+   void finalize() {
+     if (mNfcDeathHal) {
+-- 
+2.50.1
+

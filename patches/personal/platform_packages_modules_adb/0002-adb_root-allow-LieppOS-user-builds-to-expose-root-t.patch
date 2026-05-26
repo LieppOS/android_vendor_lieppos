@@ -1,0 +1,35 @@
+From d547cd3911f57991b352f87d9253a52489f656d9 Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Tue, 28 Apr 2026 20:46:49 +0300
+Subject: [PATCH] adb_root: allow LieppOS user builds to expose root toggle
+
+Change-Id: I8ac84c5d734002e6c0280c69ec3ed7b7af7b8f41
+---
+ root/adbroot_service.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/root/adbroot_service.cpp b/root/adbroot_service.cpp
+index 9e135d41..8d80d37d 100644
+--- a/root/adbroot_service.cpp
++++ b/root/adbroot_service.cpp
+@@ -30,6 +30,7 @@
+ namespace {
+ const std::string kStoragePath = "/data/adbroot/";
+ const std::string kEnabled = "enabled";
++const std::string kLieppOSAdbRootSupported = "ro.lieppos.adb_root_supported";
+ 
+ static ndk::ScopedAStatus SecurityException(const std::string& msg) {
+     LOG(ERROR) << msg;
+@@ -106,7 +107,8 @@ ndk::ScopedAStatus ADBRootService::isSupported(bool* _aidl_return) {
+     }
+ 
+     AutoMutex _l(lock_);
+-    *_aidl_return = ANDROID_DEBUGGABLE || __android_log_is_debuggable();
++    *_aidl_return = ANDROID_DEBUGGABLE || __android_log_is_debuggable() ||
++            ::android::base::GetBoolProperty(kLieppOSAdbRootSupported, false);
+     return ndk::ScopedAStatus::ok();
+ }
+ 
+-- 
+2.50.1
+

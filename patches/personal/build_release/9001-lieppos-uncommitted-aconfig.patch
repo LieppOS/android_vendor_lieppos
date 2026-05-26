@@ -1,0 +1,25 @@
+From 805fc15a84f49cc11d541cbd4b3d0fea8b91ba57 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Fri, 22 May 2026 02:16:11 +0300
+Subject: [PATCH] LieppOS uncommitted WIP: build/release
+
+Change-Id: Ib15519c9a78ce0d02e5819eb5c829d02cbaefdef
+---
+ .../new_status_bar_icons_flag_values.textproto                  | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/aconfig/bp3a/com.android.settingslib.flags/new_status_bar_icons_flag_values.textproto b/aconfig/bp3a/com.android.settingslib.flags/new_status_bar_icons_flag_values.textproto
+index 17d189f05..b75280989 100644
+--- a/aconfig/bp3a/com.android.settingslib.flags/new_status_bar_icons_flag_values.textproto
++++ b/aconfig/bp3a/com.android.settingslib.flags/new_status_bar_icons_flag_values.textproto
+@@ -1,6 +1,6 @@
+ flag_value {
+   package: "com.android.settingslib.flags"
+   name: "new_status_bar_icons"
+-  state: ENABLED
++  state: DISABLED
+   permission: READ_ONLY
+ }
+-- 
+2.50.1
+
