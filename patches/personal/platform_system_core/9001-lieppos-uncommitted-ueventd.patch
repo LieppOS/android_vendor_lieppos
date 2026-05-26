@@ -1,0 +1,29 @@
+From 92338637c4fd7a4e8a6b41bad13a5de7c87ece21 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Fri, 22 May 2026 02:16:11 +0300
+Subject: [PATCH] LieppOS uncommitted WIP: system/core
+
+Change-Id: I91459d44a2e8e65c64d294da82fec8d405623120
+---
+ rootdir/ueventd.rc | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/rootdir/ueventd.rc b/rootdir/ueventd.rc
+index 7ed89a10e..b1b935112 100644
+--- a/rootdir/ueventd.rc
++++ b/rootdir/ueventd.rc
+@@ -95,3 +95,11 @@ subsystem vfio
+ /sys/devices/system/cpu/cpu*   cpufreq/scaling_min_freq   0664  system system
+ /sys/devices/virtual/misc/uhid/*/leds/* brightness   0664  system system
+ /sys/devices/virtual/misc/uhid/*/leds/* multi_intensity   0664  system system
++
++# LieppOS: MTK master charger toggle node (Lineage Health charging control)
++/sys/devices/platform/charger/power_supply/mtk-master-charger   input_current_limit   0660  root  system
++
++# LieppOS: yft_camplight (Ulefone Armor 29 Pro / Blackview SHARK8)
++/sys/devices/platform/yft_camplight   camplight_mode              0660  system  system
++/sys/devices/platform/yft_camplight   camplight_set_brightness    0660  system  system
++/sys/devices/platform/yft_camplight   leds_ctl                    0660  system  system
+-- 
+2.50.1
+
