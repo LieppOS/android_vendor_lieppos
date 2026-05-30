@@ -1,30 +1,30 @@
-From 3685339d32cf57fa2b436869effa1791f4fc72a5 Mon Sep 17 00:00:00 2001
+From 378a96f54abb192c12465febcec5d4bfe89afd08 Mon Sep 17 00:00:00 2001
 From: LieppOS <lieppos@local>
 Date: Sun, 24 May 2026 14:47:47 +0300
 Subject: [PATCH] LieppOS uncommitted WIP: device/phh/treble
 
 ---
- AndroidProducts.mk            |   8 +--
- aex.mk                        |   4 --
- amyROM.mk                     |   1 -
- base.mk                       |   7 +++
- carbon.mk                     |   9 ---
- gapps-go.mk                   |  24 --------
- gapps.mk                      |  52 ----------------
- havoc.mk                      |   3 -
- lieppos_target_base.mk        |  61 +++++++++++++++++++
- lineage.mk                    |   5 ++
- lineage_arm64_bgN4.mk         |  22 -------
- lineage_arm64_bgNE.mk         |  24 --------
- lineage_arm64_bvN4.mk         |  22 -------
- lineage_arm64_bvNE.mk         |  52 +---------------
- lineage_arm64_bvNE_gapps.mk   |   6 ++
- lineage_arm64_bvNE_semi.mk    |   6 ++
- lineage_arm64_bvNE_vanilla.mk |   6 ++
- phh-on-boot.sh                | 110 +++++++++++++++++++++++++++++++++-
- rw-system.sh                  |   5 ++
- vndk.rc                       |  11 +++-
- 20 files changed, 220 insertions(+), 218 deletions(-)
+ AndroidProducts.mk            |  8 ++--
+ aex.mk                        |  4 --
+ amyROM.mk                     |  1 -
+ base.mk                       |  7 +++
+ carbon.mk                     |  9 ----
+ gapps-go.mk                   | 24 ----------
+ gapps.mk                      | 52 ----------------------
+ havoc.mk                      |  3 --
+ lieppos_target_base.mk        | 61 +++++++++++++++++++++++++
+ lineage.mk                    |  5 +++
+ lineage_arm64_bgN4.mk         | 22 ---------
+ lineage_arm64_bgNE.mk         | 24 ----------
+ lineage_arm64_bvN4.mk         | 22 ---------
+ lineage_arm64_bvNE.mk         | 52 ++--------------------
+ lineage_arm64_bvNE_gapps.mk   |  6 +++
+ lineage_arm64_bvNE_semi.mk    |  6 +++
+ lineage_arm64_bvNE_vanilla.mk |  6 +++
+ phh-on-boot.sh                | 84 ++++++++++++++++++++++++++++++++++-
+ rw-system.sh                  |  5 +++
+ vndk.rc                       | 11 +++--
+ 20 files changed, 194 insertions(+), 218 deletions(-)
  delete mode 100644 aex.mk
  delete mode 100644 amyROM.mk
  delete mode 100644 carbon.mk
@@ -465,7 +465,7 @@ index 0000000..24f19f3
 +
 +$(call inherit-product, vendor/lieppos/flavors/vanilla.mk)
 diff --git a/phh-on-boot.sh b/phh-on-boot.sh
-index 1adb226..8f8e458 100644
+index 1adb226..336c558 100644
 --- a/phh-on-boot.sh
 +++ b/phh-on-boot.sh
 @@ -44,7 +44,10 @@ if [ ! -f /metadata/securize_disable ]; then
@@ -480,7 +480,7 @@ index 1adb226..8f8e458 100644
    resetprop_phh -n init.svc.flash_recovery stopped
  fi
  
-@@ -53,6 +56,108 @@ vndk="$(getprop persist.sys.vndk)"
+@@ -53,6 +56,82 @@ vndk="$(getprop persist.sys.vndk)"
  
  [ "$(getprop vold.decrypt)" = "trigger_restart_min_framework" ] && exit 0
  
@@ -553,43 +553,17 @@ index 1adb226..8f8e458 100644
 +    fi
 +fi
 +
-+# Some vendor USB init scripts restore only the data function (for example
-+# mtp) even when persist.sys.usb.config still requests adb. Repair the active
-+# config so the host sees an ADB interface without requiring Termux commands.
-+usb_persist_cfg="$(getprop persist.sys.usb.config)"
-+usb_current_cfg="$(getprop sys.usb.config)"
-+if usb_has_function "$usb_persist_cfg" adb && ! usb_has_function "$usb_current_cfg" adb; then
-+    usb_adb_cfg="$(usb_add_adb_function "$usb_current_cfg")"
-+    log -t phh-on-boot "ADB persisted but current USB config is $usb_current_cfg; forcing $usb_adb_cfg"
-+    setprop sys.usb.config none
-+    sleep 1
-+    setprop sys.usb.config "$usb_adb_cfg"
-+fi
-+
-+# Force-apply ADB USB config when Settings.Global.adb_enabled=1 but the active
-+# USB config lacks ADB. AdbService's content-observer chain on this build does
-+# not reliably propagate the toggle to UsbDeviceManager.UsbHandler, so the
-+# gadget keeps exposing MTP only and the host never sees an ADB interface.
-+# Reading the settings DB at boot covers both reboot-with-ADB-on and the
-+# observer-stale case after a Developer Options toggle.
-+adb_setting="$(settings get global adb_enabled 2>/dev/null)"
-+if [ "$adb_setting" = "1" ]; then
-+    cur_cfg="$(getprop sys.usb.config)"
-+    if ! usb_has_function "$cur_cfg" adb; then
-+        usb_adb_cfg="$(usb_add_adb_function "$cur_cfg")"
-+        log -t phh-on-boot "ADB_ENABLED=1 but sys.usb.config=$cur_cfg lacks adb; forcing $usb_adb_cfg"
-+        setprop persist.sys.usb.config "$usb_adb_cfg"
-+        setprop sys.usb.config none
-+        sleep 1
-+        setprop sys.usb.config "$usb_adb_cfg"
-+        setprop ctl.start adbd
-+    fi
-+fi
++# Do not force-cycle sys.usb.config here. On MTK Type-C/charger stacks this
++# can race BC1.2 charger detection during boot and leave extcon stuck in the
++# DCP/USB-HOST state (`USB=0 USB-HOST=1`), which prevents ADB/MTP from ever
++# enumerating until reboot. Let UsbDeviceManager/vendor init own gadget
++# function changes; adbd auth/root policy is handled above without touching the
++# physical USB role.
 +
  # recover USB gadget if the UDC failed to bind during boot.
  # on some exynos devices (e.g. samsung galaxy M33), the dwc3 OTG state
  # machine starts the gadget before init has configured USB functions via
-@@ -63,6 +168,9 @@ udc_state="$(cat /config/usb_gadget/g1/UDC 2>/dev/null)"
+@@ -63,6 +142,9 @@ udc_state="$(cat /config/usb_gadget/g1/UDC 2>/dev/null)"
  if [ -z "$udc_state" ] || [ "$udc_state" = "none" ]; then
      usb_cfg="$(getprop persist.sys.usb.config)"
      if [ -n "$usb_cfg" ]; then
@@ -600,10 +574,10 @@ index 1adb226..8f8e458 100644
          setprop sys.usb.config none
          sleep 1
 diff --git a/rw-system.sh b/rw-system.sh
-index 900287c..11ab2ea 100644
+index 9b6e921..e533488 100644
 --- a/rw-system.sh
 +++ b/rw-system.sh
-@@ -1080,6 +1080,11 @@ if getprop ro.vendor.build.fingerprint |grep -qiE \
+@@ -1074,6 +1074,11 @@ if getprop ro.vendor.build.fingerprint |grep -qiE \
          -e razer/cheryl ; then
      setprop media.settings.xml "/vendor/etc/media_profiles_vendor.xml"
  fi
