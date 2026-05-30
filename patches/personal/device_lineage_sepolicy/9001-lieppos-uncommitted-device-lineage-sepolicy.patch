@@ -1,0 +1,46 @@
+From 08172fa080da7ce214699ed0b92d1ff8223e3cc8 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Sat, 30 May 2026 17:32:23 +0300
+Subject: [PATCH] LieppOS uncommitted WIP: device/lineage/sepolicy
+
+Change-Id: Icdf2b225051ebf22969783045cf3156a33ad4343
+---
+ common/private/adbd.te    | 9 +++++++++
+ common/private/adbroot.te | 8 ++++++++
+ 2 files changed, 17 insertions(+)
+
+diff --git a/common/private/adbd.te b/common/private/adbd.te
+index e5ef587..e36902e 100644
+--- a/common/private/adbd.te
++++ b/common/private/adbd.te
+@@ -1,2 +1,11 @@
+ allow adbd adbroot:binder call;
+ allow adbd adbroot_service:service_manager find;
++
++# LieppOS: when service.adb.root=1 on a user build, adbd keeps running as
++# uid 0 but stays in u:r:adbd:s0 (we deliberately skip the u:r:su:s0
++# transition so attestation/policy stays clean). Without DAC bypass caps,
++# root-adbd cannot traverse /dev/usb-ffs/adb/ or open ep0 (owned
++# shell:shell, 0660), so access(F_OK) fails, usb_init() is never called,
++# and ADB drops off USB even though tcp:5555 stays up. Stock root adbd
++# would have gotten these via the su domain. Reinstate them here.
++allow adbd self:capability { dac_override dac_read_search };
+diff --git a/common/private/adbroot.te b/common/private/adbroot.te
+index 828ce90..1dcf25c 100644
+--- a/common/private/adbroot.te
++++ b/common/private/adbroot.te
+@@ -15,3 +15,11 @@ allow adbroot adbroot_data_file:file create_file_perms;
+ 
+ set_prop(adbroot, shell_prop)
+ set_prop(adbroot, ctl_adbd_prop)
++
++# LieppOS: SystemUI runs as platform_app (uid 10149), not system_server.
++# The ADB Root QS tile needs to read state and toggle root; without these
++# rules every shade-open / tile-click fails with:
++#   avc: denied { find } scontext=u:r:platform_app:s0 tcontext=u:object_r:adbroot_service:s0
++#   ADBRootService: Unable to acquire ADBRootService
++allow platform_app adbroot_service:service_manager find;
++binder_call(platform_app, adbroot)
+-- 
+2.54.0
+
