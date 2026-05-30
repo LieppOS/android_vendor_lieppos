@@ -74,16 +74,18 @@ index 61f6681f5ab..084393e7f27 100644
 @@ -288,13 +303,15 @@
          </com.android.settings.widget.HomepagePreference>
  
-         <com.android.settings.widget.HomepagePreference
+-        <com.android.settings.widget.HomepagePreference
 -            android:icon="@drawable/ic_help_filled"
 -            android:key="top_level_support"
-+            android:icon="@drawable/ic_settings_system_dashboard_filled"
-+            android:key="top_level_treble_app"
-             android:order="-10"
+-            android:order="-10"
 -            android:title="@string/page_tab_title_support"
 -            android:summary="@string/support_summary"
 -            settings:highlightableMenuKey="@string/menu_key_support"
 -            settings:controller="com.android.settings.support.SupportPreferenceController"/>
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_settings_system_dashboard_filled"
++            android:key="top_level_treble_app"
++            android:order="-10"
 +            android:title="@string/treble_app_settings_title"
 +            android:summary="@string/treble_app_settings_summary">
 +            <intent
@@ -145,16 +147,18 @@ index 37980aef6b1..f076e20aee0 100644
 @@ -284,12 +299,14 @@
          </com.android.settings.widget.HomepagePreference>
  
-         <com.android.settings.widget.HomepagePreference
+-        <com.android.settings.widget.HomepagePreference
 -            android:icon="@drawable/ic_homepage_support"
 -            android:key="top_level_support"
-+            android:icon="@drawable/ic_homepage_system_dashboard"
-+            android:key="top_level_treble_app"
-             android:order="-10"
+-            android:order="-10"
 -            android:title="@string/page_tab_title_support"
 -            android:summary="@string/support_summary"
 -            settings:highlightableMenuKey="@string/menu_key_support"
 -            settings:controller="com.android.settings.support.SupportPreferenceController"/>
++        <com.android.settings.widget.HomepagePreference
++            android:icon="@drawable/ic_homepage_system_dashboard"
++            android:key="top_level_treble_app"
++            android:order="-10"
 +            android:title="@string/treble_app_settings_title"
 +            android:summary="@string/treble_app_settings_summary">
 +            <intent
