@@ -183,6 +183,24 @@ index 084393e7f27..fffb22d5bdf 100644
      <PreferenceCategory
          android:order="-130"
          android:key="top_level_connectivity_category"
+@@ -302,17 +319,6 @@
+                 android:targetClass="lt.devsecops.androidnfc.ui.SettingsActivity"/>
+         </com.android.settings.widget.HomepagePreference>
+ 
+-        <com.android.settings.widget.HomepagePreference
+-            android:icon="@drawable/ic_settings_system_dashboard_filled"
+-            android:key="top_level_treble_app"
+-            android:order="-10"
+-            android:title="@string/treble_app_settings_title"
+-            android:summary="@string/treble_app_settings_summary">
+-            <intent
+-                android:targetPackage="me.phh.treble.app"
+-                android:targetClass="me.phh.treble.app.TopLevelSettingsActivity"/>
+-        </com.android.settings.widget.HomepagePreference>
+-
+     </PreferenceCategory>
+ 
+ </PreferenceScreen>
 diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
 index f076e20aee0..f9aec50d89c 100644
 --- a/res/xml/top_level_settings_expressive.xml
@@ -210,6 +228,23 @@ index f076e20aee0..f9aec50d89c 100644
      <com.android.settingslib.widget.UntitledPreferenceCategory
          android:order="-130"
          android:key="top_level_connectivity_category">
+@@ -298,16 +314,5 @@
+                 android:targetClass="lt.devsecops.androidnfc.ui.SettingsActivity"/>
+         </com.android.settings.widget.HomepagePreference>
+ 
+-        <com.android.settings.widget.HomepagePreference
+-            android:icon="@drawable/ic_homepage_system_dashboard"
+-            android:key="top_level_treble_app"
+-            android:order="-10"
+-            android:title="@string/treble_app_settings_title"
+-            android:summary="@string/treble_app_settings_summary">
+-            <intent
+-                android:targetPackage="me.phh.treble.app"
+-                android:targetClass="me.phh.treble.app.TopLevelSettingsActivity"/>
+-        </com.android.settings.widget.HomepagePreference>
+-
+     </com.android.settingslib.widget.UntitledPreferenceCategory>
+ </PreferenceScreen>
 diff --git a/src/com/android/settings/connecteddevice/usb/UsbBackend.java b/src/com/android/settings/connecteddevice/usb/UsbBackend.java
 index b1df804d3b3..4091acb2e01 100644
 --- a/src/com/android/settings/connecteddevice/usb/UsbBackend.java
