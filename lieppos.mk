@@ -70,28 +70,30 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PRODUCT_PROPERTIES += \
     ro.lieppos.adb_root_supported=true
 
-# Universal IMS / 4G calling exposure.
-# These properties are read by frameworks `ImsManager.isVolteEnabledByPlatform()` /
-# `isVtEnabledByPlatform()` / `isWfcEnabledByPlatform()` and bypass the per-MCC
-# `carrier_*_available_bool` gating. They expose the "Enhanced 4G LTE" / VoLTE /
-# Wi-Fi calling toggle to every user regardless of operator; actual IMS
-# registration still depends on the carrier supporting it on the user's SIM.
-#  - persist.dbg.volte_avail_ovr=1  → VoLTE available on every SIM
-#  - persist.dbg.vt_avail_ovr=1     → VT (4G video calls) available on every SIM
-#  - persist.dbg.wfc_avail_ovr=1    → Wi-Fi calling available on every SIM
-#  - persist.dbg.allow_ims_off=1    → let user turn it off again
+# Armor 29 Pro / MTK Treble compatibility defaults. These mirror the PHH/Treble
+# App patches but ship enabled for this phone so they are active before the user
+# opens LieppOS Settings -> System -> Patches.
 PRODUCT_PRODUCT_PROPERTIES += \
-    persist.dbg.volte_avail_ovr=1 \
-    persist.dbg.vt_avail_ovr=1 \
-    persist.dbg.wfc_avail_ovr=1 \
-    persist.dbg.allow_ims_off=1
+    persist.sys.overlay.devinputjack=true \
+    persist.sys.phh.disable_audio_effects=1 \
+    persist.sys.phh.mtk_ged_kpi=1 \
+    persist.bluetooth.system_audio_hal.enabled=true \
+    persist.sys.phh.allow_binder_thread_on_incoming_calls=1 \
+    persist.sys.phh.disable_voice_call_in=true \
+    persist.sys.phh.patch_smsc=true \
+    persist.sys.phh.virtual_sensors_are_real=1 \
+    persist.dbg.volte_avail_ovr=0 \
+    persist.dbg.vt_avail_ovr=0 \
+    persist.dbg.wfc_avail_ovr=0 \
+    persist.dbg.allow_ims_off=0
 
-# Some vendor IMS stacks (Huawei/Honor/older Qualcomm, MTK) also gate their
-# IMS app on these ro.config flags. Harmless on stacks that don't read them.
+# IMS / 4G calling feature gates are present but intentionally OFF by default.
+# Users can enable the matching controls from LieppOS Settings -> System ->
+# Patches -> IMS features when testing VoLTE/VT/WFC on a carrier/SIM.
 PRODUCT_PRODUCT_PROPERTIES += \
-    ro.config.hw_volte_enable=true \
-    ro.config.hw_video_call_enable=true \
-    ro.config.hw_wifi_call_enable=true
+    ro.config.hw_volte_enable=false \
+    ro.config.hw_video_call_enable=false \
+    ro.config.hw_wifi_call_enable=false
 
 # Silence vendor log spam: trustonic IPC retries (TEE keymaster path
 # unavailable on this kernel) and MTK GNSS geofence_dev_open retries
