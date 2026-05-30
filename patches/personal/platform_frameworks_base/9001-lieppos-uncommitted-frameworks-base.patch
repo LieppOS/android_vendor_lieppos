@@ -1,9 +1,17 @@
-From e52a39fdd8fe58b2526fdec2abff9abed4951bb6 Mon Sep 17 00:00:00 2001
+From 178d411b00022fa812a43e03e0aafac99b4eef85 Mon Sep 17 00:00:00 2001
 From: LieppOS <lieppos@local>
-Date: Sun, 24 May 2026 03:59:05 +0300
-Subject: [PATCH] LieppOS uncommitted WIP: frameworks/base
+Date: Tue, 28 Apr 2026 00:42:42 +0300
+Subject: [PATCH] microG: gate restricted spoofing on
+ ro.lieppos.microg_restricted_spoofing
 
-Change-Id: I226c6b91cbe218f5f9f73898554200d527c723fb
+Allow the existing restricted microG signature spoofing path when
+either ro.debuggable=1 or ro.lieppos.microg_restricted_spoofing=true,
+so user builds keep spoofing enabled without flipping to userdebug.
+
+Scope unchanged: still only com.google.android.gms / com.android.vending,
+still gated on the hardcoded NOGAPPS cert.
+
+Change-Id: I63fda64adbb63ca8cd9072831ef2dba03862b2e1
 ---
  core/java/android/provider/Settings.java      | 122 ++++
  .../SystemNotificationChannels.java           |   7 +
@@ -20,6 +28,7 @@ Change-Id: I226c6b91cbe218f5f9f73898554200d527c723fb
  .../res/drawable/qs_adb_root_icon.xml         |  13 +
  .../res/drawable/qs_gps_refresh_icon.xml      |  13 +
  .../res/drawable/qs_screen_timeout_icon.xml   |  13 +
+ .../res/drawable/qs_split_screen_icon.xml     |  10 +
  .../res/drawable/qs_usb_mode_icon.xml         |  13 +
  packages/SystemUI/res/values/cm_strings.xml   |   3 +
  packages/SystemUI/res/values/config.xml       |   4 +-
@@ -44,7 +53,7 @@ Change-Id: I226c6b91cbe218f5f9f73898554200d527c723fb
  .../viewmodel/QuickQuickSettingsViewModel.kt  |  14 +
  .../systemui/qs/shared/model/TileCategory.kt  |   4 +
  .../systemui/qs/tiles/AdbDebuggingTile.java   | 122 ++++
- .../systemui/qs/tiles/AdbRootTile.java        | 145 +++++
+ .../systemui/qs/tiles/AdbRootTile.java        | 137 +++++
  .../systemui/qs/tiles/AdbUsbSupport.java      |  46 ++
  .../systemui/qs/tiles/GpsRefreshTile.java     | 152 +++++
  .../systemui/qs/tiles/ScreenTimeoutTile.java  | 155 +++++
@@ -52,7 +61,7 @@ Change-Id: I226c6b91cbe218f5f9f73898554200d527c723fb
  .../systemui/qs/tiles/UsbModeTile.java        | 174 ++++++
  .../MobileDataTileUserActionInteractor.kt     |  42 +-
  .../ui/composable/BatteryWithChargeStatus.kt  |   4 +-
- .../systemui/statusbar/policy/PolicyModule.kt | 180 ++++++
+ .../systemui/statusbar/policy/PolicyModule.kt | 185 +++++-
  .../systemui/volume/VolumeDialogImpl.java     |   4 +-
  .../ui/VolumeDialogSliderViewBinder.kt        |  20 +-
  .../com/android/systemui/wmshell/WMShell.java |  26 +
@@ -61,21 +70,24 @@ Change-Id: I226c6b91cbe218f5f9f73898554200d527c723fb
  .../server/LieppOSRefreshRateService.java     | 152 +++++
  .../com/android/server/Smart5gService.java    | 238 ++++++++
  .../com/android/server/adb/AdbService.java    |  90 ++-
- .../server/display/SmoothDisplayService.java  | 180 ++++++
+ .../android/server/appop/AppOpsService.java   |  28 +
+ .../server/display/SmoothDisplayService.java  | 279 +++++++++
  .../server/notification/VibratorHelper.java   |  32 +-
- .../server/policy/PhoneWindowManager.java     |  84 +++
+ .../com/android/server/pm/ComputerEngine.java |   9 +-
+ .../server/policy/PhoneWindowManager.java     |  86 +++
  .../policy/SwipeToScreenshotListener.java     | 112 ++++
  .../server/power/SleepModeService.java        | 568 ++++++++++++++++++
  .../stats/BluetoothPowerStatsCollector.java   |   2 +-
  .../java/com/android/server/SystemServer.java |  34 ++
  .../android/server/usb/UsbDeviceManager.java  |  13 +-
- 64 files changed, 3285 insertions(+), 324 deletions(-)
+ 67 files changed, 3426 insertions(+), 326 deletions(-)
  create mode 100644 core/res/res/drawable/ic_sleep.xml
  create mode 100644 packages/SystemUI/res/drawable/ic_qs_category_lieppos.xml
  create mode 100644 packages/SystemUI/res/drawable/qs_adb_debugging_icon.xml
  create mode 100644 packages/SystemUI/res/drawable/qs_adb_root_icon.xml
  create mode 100644 packages/SystemUI/res/drawable/qs_gps_refresh_icon.xml
  create mode 100644 packages/SystemUI/res/drawable/qs_screen_timeout_icon.xml
+ create mode 100644 packages/SystemUI/res/drawable/qs_split_screen_icon.xml
  create mode 100644 packages/SystemUI/res/drawable/qs_usb_mode_icon.xml
  create mode 100644 packages/SystemUI/src/com/android/systemui/qs/tiles/AdbDebuggingTile.java
  create mode 100644 packages/SystemUI/src/com/android/systemui/qs/tiles/AdbRootTile.java
@@ -91,7 +103,7 @@ Change-Id: I226c6b91cbe218f5f9f73898554200d527c723fb
  create mode 100644 services/core/java/com/android/server/power/SleepModeService.java
 
 diff --git a/core/java/android/provider/Settings.java b/core/java/android/provider/Settings.java
-index 36e2193cec11c..6ce5f01da56d3 100644
+index 36e2193cec11..6ce5f01da56d 100644
 --- a/core/java/android/provider/Settings.java
 +++ b/core/java/android/provider/Settings.java
 @@ -4282,6 +4282,46 @@ public final class Settings {
@@ -231,7 +243,7 @@ index 36e2193cec11c..6ce5f01da56d3 100644
           * The current assistant component. It could be a voice interaction service,
           * or an activity that handles ACTION_ASSIST, or empty which means using the default
 diff --git a/core/java/com/android/internal/notification/SystemNotificationChannels.java b/core/java/com/android/internal/notification/SystemNotificationChannels.java
-index 972c2ea403e07..8d2f937bc3d30 100644
+index 972c2ea403e0..8d2f937bc3d3 100644
 --- a/core/java/com/android/internal/notification/SystemNotificationChannels.java
 +++ b/core/java/com/android/internal/notification/SystemNotificationChannels.java
 @@ -71,6 +71,7 @@ public class SystemNotificationChannels {
@@ -257,7 +269,7 @@ index 972c2ea403e07..8d2f937bc3d30 100644
          // Delete channels created by previous Android versions that are no longer used.
 diff --git a/core/res/res/drawable/ic_sleep.xml b/core/res/res/drawable/ic_sleep.xml
 new file mode 100644
-index 0000000000000..48355d3525ef5
+index 000000000000..48355d3525ef
 --- /dev/null
 +++ b/core/res/res/drawable/ic_sleep.xml
 @@ -0,0 +1,11 @@
@@ -273,7 +285,7 @@ index 0000000000000..48355d3525ef5
 +        android:pathData="M23,12H17V10L20.39,6H17V4H23V6L19.62,10H23V12M15,16H9V14L12.39,10H9V8H15V10L11.62,14H15V16M7,20H1V18L4.39,14H1V12H7V14L3.62,18H7V20Z" />
 +</vector>
 diff --git a/core/res/res/values/strings.xml b/core/res/res/values/strings.xml
-index f9abbcd1b24a2..f8f2ce672fc84 100644
+index f9abbcd1b24a..f8f2ce672fc8 100644
 --- a/core/res/res/values/strings.xml
 +++ b/core/res/res/values/strings.xml
 @@ -6659,6 +6659,13 @@ ul.</string>
@@ -291,7 +303,7 @@ index f9abbcd1b24a2..f8f2ce672fc84 100644
      <string name="notification_title_abusive_bg_apps">An app is draining battery</string>
      <!-- Title of notification indicating long running foreground services. [CHAR LIMIT=NONE] -->
 diff --git a/core/res/res/values/symbols.xml b/core/res/res/values/symbols.xml
-index 819b7cc28e5af..a719f2b93e4fa 100644
+index 819b7cc28e5a..a719f2b93e4f 100644
 --- a/core/res/res/values/symbols.xml
 +++ b/core/res/res/values/symbols.xml
 @@ -5436,6 +5436,12 @@
@@ -308,7 +320,7 @@ index 819b7cc28e5af..a719f2b93e4fa 100644
    <java-symbol type="string" name="notification_title_long_running_fgs"/>
    <java-symbol type="string" name="notification_content_abusive_bg_apps"/>
 diff --git a/libs/WindowManager/Shell/src/com/android/wm/shell/splitscreen/SplitScreen.java b/libs/WindowManager/Shell/src/com/android/wm/shell/splitscreen/SplitScreen.java
-index f449cab23e7a9..b6683db3ea62f 100644
+index f449cab23e7a..b6683db3ea62 100644
 --- a/libs/WindowManager/Shell/src/com/android/wm/shell/splitscreen/SplitScreen.java
 +++ b/libs/WindowManager/Shell/src/com/android/wm/shell/splitscreen/SplitScreen.java
 @@ -107,6 +107,9 @@ public interface SplitScreen {
@@ -322,7 +334,7 @@ index f449cab23e7a9..b6683db3ea62f 100644
      void registerSplitScreenListener(@NonNull SplitScreenListener listener,
              @NonNull Executor executor);
 diff --git a/libs/WindowManager/Shell/src/com/android/wm/shell/splitscreen/SplitScreenController.java b/libs/WindowManager/Shell/src/com/android/wm/shell/splitscreen/SplitScreenController.java
-index b53996c6e3588..c4ca06f207dcc 100644
+index b53996c6e358..c4ca06f207dc 100644
 --- a/libs/WindowManager/Shell/src/com/android/wm/shell/splitscreen/SplitScreenController.java
 +++ b/libs/WindowManager/Shell/src/com/android/wm/shell/splitscreen/SplitScreenController.java
 @@ -1207,6 +1207,12 @@ public class SplitScreenController implements SplitDragPolicy.Starter,
@@ -339,7 +351,7 @@ index b53996c6e3588..c4ca06f207dcc 100644
          public void setSplitscreenFocus(boolean leftOrTop) {
              mMainExecutor.execute(
 diff --git a/packages/SettingsProvider/src/android/provider/settings/validators/SecureSettingsValidators.java b/packages/SettingsProvider/src/android/provider/settings/validators/SecureSettingsValidators.java
-index a7508c30f8c01..53cf38a9089d6 100644
+index a7508c30f8c0..53cf38a9089d 100644
 --- a/packages/SettingsProvider/src/android/provider/settings/validators/SecureSettingsValidators.java
 +++ b/packages/SettingsProvider/src/android/provider/settings/validators/SecureSettingsValidators.java
 @@ -133,6 +133,24 @@ public class SecureSettingsValidators {
@@ -368,7 +380,7 @@ index a7508c30f8c01..53cf38a9089d6 100644
          VALIDATORS.put(Secure.LONG_PRESS_TIMEOUT, NON_NEGATIVE_INTEGER_VALIDATOR);
          VALIDATORS.put(Secure.KEY_REPEAT_ENABLED, BOOLEAN_VALIDATOR);
 diff --git a/packages/SystemUI/compose/features/src/com/android/systemui/volume/panel/component/volume/ui/composable/VolumeSlider.kt b/packages/SystemUI/compose/features/src/com/android/systemui/volume/panel/component/volume/ui/composable/VolumeSlider.kt
-index 6e3567ca43d26..d7a4184ce713c 100644
+index 6e3567ca43d2..d7a4184ce713 100644
 --- a/packages/SystemUI/compose/features/src/com/android/systemui/volume/panel/component/volume/ui/composable/VolumeSlider.kt
 +++ b/packages/SystemUI/compose/features/src/com/android/systemui/volume/panel/component/volume/ui/composable/VolumeSlider.kt
 @@ -24,7 +24,6 @@ import androidx.compose.animation.fadeIn
@@ -519,7 +531,7 @@ index 6e3567ca43d26..d7a4184ce713c 100644
  object VolumeSlidersMotionTestKeys {
      const val ACTIVE_ICON_TAG = "Volume_Slider_activeStartIcon"
 diff --git a/packages/SystemUI/multivalentTests/src/com/android/systemui/qs/tiles/impl/cell/domain/interactor/MobileDataTileUserActionInteractorTest.kt b/packages/SystemUI/multivalentTests/src/com/android/systemui/qs/tiles/impl/cell/domain/interactor/MobileDataTileUserActionInteractorTest.kt
-index 960e774f8147b..940fb6927a7ee 100644
+index 960e774f8147..940fb6927a7e 100644
 --- a/packages/SystemUI/multivalentTests/src/com/android/systemui/qs/tiles/impl/cell/domain/interactor/MobileDataTileUserActionInteractorTest.kt
 +++ b/packages/SystemUI/multivalentTests/src/com/android/systemui/qs/tiles/impl/cell/domain/interactor/MobileDataTileUserActionInteractorTest.kt
 @@ -16,20 +16,16 @@
@@ -608,7 +620,7 @@ index 960e774f8147b..940fb6927a7ee 100644
              assertThat(
 diff --git a/packages/SystemUI/res/drawable/ic_qs_category_lieppos.xml b/packages/SystemUI/res/drawable/ic_qs_category_lieppos.xml
 new file mode 100644
-index 0000000000000..51bfe3edd1b55
+index 000000000000..51bfe3edd1b5
 --- /dev/null
 +++ b/packages/SystemUI/res/drawable/ic_qs_category_lieppos.xml
 @@ -0,0 +1,11 @@
@@ -625,7 +637,7 @@ index 0000000000000..51bfe3edd1b55
 +</vector>
 diff --git a/packages/SystemUI/res/drawable/qs_adb_debugging_icon.xml b/packages/SystemUI/res/drawable/qs_adb_debugging_icon.xml
 new file mode 100644
-index 0000000000000..bc91a5c54b97c
+index 000000000000..bc91a5c54b97
 --- /dev/null
 +++ b/packages/SystemUI/res/drawable/qs_adb_debugging_icon.xml
 @@ -0,0 +1,13 @@
@@ -644,7 +656,7 @@ index 0000000000000..bc91a5c54b97c
 +</vector>
 diff --git a/packages/SystemUI/res/drawable/qs_adb_root_icon.xml b/packages/SystemUI/res/drawable/qs_adb_root_icon.xml
 new file mode 100644
-index 0000000000000..e6e6ae8b682cb
+index 000000000000..e6e6ae8b682c
 --- /dev/null
 +++ b/packages/SystemUI/res/drawable/qs_adb_root_icon.xml
 @@ -0,0 +1,13 @@
@@ -663,7 +675,7 @@ index 0000000000000..e6e6ae8b682cb
 +</vector>
 diff --git a/packages/SystemUI/res/drawable/qs_gps_refresh_icon.xml b/packages/SystemUI/res/drawable/qs_gps_refresh_icon.xml
 new file mode 100644
-index 0000000000000..d0dd77686a1c2
+index 000000000000..d0dd77686a1c
 --- /dev/null
 +++ b/packages/SystemUI/res/drawable/qs_gps_refresh_icon.xml
 @@ -0,0 +1,13 @@
@@ -682,7 +694,7 @@ index 0000000000000..d0dd77686a1c2
 +</vector>
 diff --git a/packages/SystemUI/res/drawable/qs_screen_timeout_icon.xml b/packages/SystemUI/res/drawable/qs_screen_timeout_icon.xml
 new file mode 100644
-index 0000000000000..66d4c84478e5d
+index 000000000000..66d4c84478e5
 --- /dev/null
 +++ b/packages/SystemUI/res/drawable/qs_screen_timeout_icon.xml
 @@ -0,0 +1,13 @@
@@ -699,9 +711,25 @@ index 0000000000000..66d4c84478e5d
 +        android:fillColor="#1f1f1f"
 +        android:pathData="M12,7.5c2.2,0 4,1.8 4,4s-1.8,4 -4,4s-4,-1.8 -4,-4s1.8,-4 4,-4zM11.3,9.2v2.75l2.2,1.3l0.7,-1.15l-1.55,-0.9v-2z" />
 +</vector>
+diff --git a/packages/SystemUI/res/drawable/qs_split_screen_icon.xml b/packages/SystemUI/res/drawable/qs_split_screen_icon.xml
+new file mode 100644
+index 000000000000..83dd6c15756d
+--- /dev/null
++++ b/packages/SystemUI/res/drawable/qs_split_screen_icon.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24">
++    <path
++        android:fillColor="#FFFFFFFF"
++        android:pathData="M4,5.5C4,4.67 4.67,4 5.5,4h13C19.33,4 20,4.67 20,5.5v13c0,0.83 -0.67,1.5 -1.5,1.5h-13C4.67,20 4,19.33 4,18.5v-13zM6,6v5h12V6H6zM6,13v5h12v-5H6z" />
++</vector>
 diff --git a/packages/SystemUI/res/drawable/qs_usb_mode_icon.xml b/packages/SystemUI/res/drawable/qs_usb_mode_icon.xml
 new file mode 100644
-index 0000000000000..6bcf3c871bf3a
+index 000000000000..6bcf3c871bf3
 --- /dev/null
 +++ b/packages/SystemUI/res/drawable/qs_usb_mode_icon.xml
 @@ -0,0 +1,13 @@
@@ -719,7 +747,7 @@ index 0000000000000..6bcf3c871bf3a
 +        android:pathData="M4,5h1.8v1.8H4zM18.2,5H20v1.8h-1.8zM3,16h3v1.6H3zM18,16h3v1.6h-3z" />
 +</vector>
 diff --git a/packages/SystemUI/res/values/cm_strings.xml b/packages/SystemUI/res/values/cm_strings.xml
-index f918477d575bc..173a8e8a4ce9e 100644
+index f918477d575b..173a8e8a4ce9 100644
 --- a/packages/SystemUI/res/values/cm_strings.xml
 +++ b/packages/SystemUI/res/values/cm_strings.xml
 @@ -31,6 +31,9 @@
@@ -733,7 +761,7 @@ index f918477d575bc..173a8e8a4ce9e 100644
      <!-- Restart progress dialog. This is shown if the user chooses to restart the device. -->
      <string name="global_action_restart_progress">Restarting\u2026</string>
 diff --git a/packages/SystemUI/res/values/config.xml b/packages/SystemUI/res/values/config.xml
-index 8a1efb1ec4d62..a4443faffdf20 100644
+index 8a1efb1ec4d6..a4443faffdf2 100644
 --- a/packages/SystemUI/res/values/config.xml
 +++ b/packages/SystemUI/res/values/config.xml
 @@ -102,7 +102,7 @@
@@ -755,7 +783,7 @@ index 8a1efb1ec4d62..a4443faffdf20 100644
  
      <!-- The tiles to display in QuickSettings -->
 diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
-index 2ba01dbd7da85..ebcbf5c34eb9c 100644
+index 2ba01dbd7da8..ebcbf5c34eb9 100644
 --- a/packages/SystemUI/res/values/strings.xml
 +++ b/packages/SystemUI/res/values/strings.xml
 @@ -1063,6 +1063,37 @@
@@ -808,7 +836,7 @@ index 2ba01dbd7da85..ebcbf5c34eb9c 100644
      <string name="qs_edit_mode_category_connectivity">
          Connectivity
 diff --git a/packages/SystemUI/src/com/android/systemui/battery/BatteryMeterView.java b/packages/SystemUI/src/com/android/systemui/battery/BatteryMeterView.java
-index 1806e4e60b562..cf01d4595bd70 100644
+index 1806e4e60b56..cf01d4595bd7 100644
 --- a/packages/SystemUI/src/com/android/systemui/battery/BatteryMeterView.java
 +++ b/packages/SystemUI/src/com/android/systemui/battery/BatteryMeterView.java
 @@ -82,7 +82,6 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
@@ -853,7 +881,7 @@ index 1806e4e60b562..cf01d4595bd70 100644
  }
 -
 diff --git a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java b/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
-index 528e7d871ac5a..ab32cef851d81 100644
+index 528e7d871ac5..ab32cef851d8 100644
 --- a/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
 +++ b/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java
 @@ -212,6 +212,9 @@ public class GlobalActionsDialogLite implements DialogInterface.OnDismissListene
@@ -918,7 +946,7 @@ index 528e7d871ac5a..ab32cef851d81 100644
          private RestartDownloadAction() {
              super(com.android.systemui.res.R.drawable.ic_lock_restart_bootloader,
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/PagedTileLayout.java b/packages/SystemUI/src/com/android/systemui/qs/PagedTileLayout.java
-index ca7b06a16a728..16c9f1899e6ca 100644
+index ca7b06a16a72..16c9f1899e6c 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/PagedTileLayout.java
 +++ b/packages/SystemUI/src/com/android/systemui/qs/PagedTileLayout.java
 @@ -506,6 +506,11 @@ public class PagedTileLayout extends ViewPager implements QSTileLayout {
@@ -934,7 +962,7 @@ index ca7b06a16a728..16c9f1899e6ca 100644
      public boolean setMinRows(int minRows) {
          mMinRows = minRows;
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/QuickQSPanel.java b/packages/SystemUI/src/com/android/systemui/qs/QuickQSPanel.java
-index 168be40c846b4..75f72702c3053 100644
+index 168be40c846b..75f72702c305 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/QuickQSPanel.java
 +++ b/packages/SystemUI/src/com/android/systemui/qs/QuickQSPanel.java
 @@ -179,14 +179,19 @@ public class QuickQSPanel extends QSPanel {
@@ -960,7 +988,7 @@ index 168be40c846b4..75f72702c3053 100644
          }
  
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/QuickQSPanelController.java b/packages/SystemUI/src/com/android/systemui/qs/QuickQSPanelController.java
-index 2c40ef66ca985..d1ce41cae2a23 100644
+index 2c40ef66ca98..d1ce41cae2a2 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/QuickQSPanelController.java
 +++ b/packages/SystemUI/src/com/android/systemui/qs/QuickQSPanelController.java
 @@ -20,6 +20,11 @@ import static com.android.systemui.media.dagger.MediaModule.QUICK_QS_PANEL;
@@ -1052,7 +1080,7 @@ index 2c40ef66ca985..d1ce41cae2a23 100644
 +    }
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/TileLayout.java b/packages/SystemUI/src/com/android/systemui/qs/TileLayout.java
-index ef44e5fb8757e..a02272a7d4677 100644
+index ef44e5fb8757..a02272a7d467 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/TileLayout.java
 +++ b/packages/SystemUI/src/com/android/systemui/qs/TileLayout.java
 @@ -4,6 +4,9 @@ import static com.android.systemui.util.Utils.useQsMediaPlayer;
@@ -1176,7 +1204,7 @@ index ef44e5fb8757e..a02272a7d4677 100644
          mColumns = Math.min(mResourceColumns, mMaxColumns);
          return oldColumns != mColumns;
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QSColumnsRepository.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QSColumnsRepository.kt
-index 5420015f744aa..84f1c8b51196f 100644
+index 5420015f744a..84f1c8b51196 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QSColumnsRepository.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QSColumnsRepository.kt
 @@ -19,11 +19,14 @@ package com.android.systemui.qs.panels.data.repository
@@ -1227,7 +1255,7 @@ index 5420015f744aa..84f1c8b51196f 100644
          resources.getInteger(R.integer.quick_settings_infinite_grid_num_columns)
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt
-index 636f703ac65aa..44e429b94fd51 100644
+index 636f703ac65a..44e429b94fd5 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/data/repository/QuickQuickSettingsRowRepository.kt
 @@ -19,10 +19,13 @@ package com.android.systemui.qs.panels.data.repository
@@ -1266,7 +1294,7 @@ index 636f703ac65aa..44e429b94fd51 100644
          }
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt
-index 5f001df7a49e4..5f8136e584ab6 100644
+index 5f001df7a49e..5f8136e584ab 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/domain/interactor/QuickQuickSettingsRowInteractor.kt
 @@ -24,9 +24,10 @@ import javax.inject.Inject
@@ -1283,7 +1311,7 @@ index 5f001df7a49e4..5f8136e584ab6 100644
 +        get() = quickQuickSettingsRowRepository.defaultRows
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/PaginatedGridLayout.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/PaginatedGridLayout.kt
-index 899cf6bdddefe..717264de35fad 100644
+index 899cf6bdddef..717264de35fa 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/PaginatedGridLayout.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/PaginatedGridLayout.kt
 @@ -36,7 +36,6 @@ import androidx.compose.ui.Alignment
@@ -1312,7 +1340,7 @@ index 899cf6bdddefe..717264de35fad 100644
              remember(tiles, rows, *delegateGridViewModel.pageKeys) {
                  delegateGridViewModel.splitIntoPages(tiles, rows)
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/QuickQuickSettings.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/QuickQuickSettings.kt
-index 84869c71eac51..4188eb1eee54b 100644
+index 84869c71eac5..4188eb1eee54 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/QuickQuickSettings.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/QuickQuickSettings.kt
 @@ -18,6 +18,7 @@ package com.android.systemui.qs.panels.ui.compose
@@ -1462,7 +1490,7 @@ index 84869c71eac51..4188eb1eee54b 100644
          }
      }
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
-index 0ae396615b4fa..8e72fa15117f8 100644
+index 0ae396615b4f..8e72fa15117f 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/CommonTile.kt
 @@ -52,6 +52,7 @@ import androidx.compose.runtime.mutableIntStateOf
@@ -1483,7 +1511,7 @@ index 0ae396615b4fa..8e72fa15117f8 100644
  fun LargeTileContent(
      label: String,
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/InfiniteGridLayout.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/InfiniteGridLayout.kt
-index 734377e8d2169..1044dbc2ff296 100644
+index 734377e8d216..1044dbc2ff29 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/InfiniteGridLayout.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/InfiniteGridLayout.kt
 @@ -18,6 +18,7 @@ package com.android.systemui.qs.panels.ui.compose.infinitegrid
@@ -1626,7 +1654,7 @@ index 734377e8d2169..1044dbc2ff296 100644
          }
  
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
-index 1d254bff91a38..a447906b3707c 100644
+index 1d254bff91a3..a447906b3707 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/compose/infinitegrid/Tile.kt
 @@ -91,7 +91,6 @@ import com.android.systemui.lifecycle.rememberViewModel
@@ -1666,7 +1694,7 @@ index 1d254bff91a38..a447906b3707c 100644
      ) {
          LargeTileContent(
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/InfiniteGridViewModel.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/InfiniteGridViewModel.kt
-index 8cf7803f72270..76ffcff341892 100644
+index 8cf7803f7227..76ffcff34189 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/InfiniteGridViewModel.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/InfiniteGridViewModel.kt
 @@ -16,18 +16,22 @@
@@ -1717,7 +1745,7 @@ index 8cf7803f72270..76ffcff341892 100644
      override val pageKeys: Array<Any>
          get() =
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/PaginatedGridViewModel.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/PaginatedGridViewModel.kt
-index bebc80f32e1fe..56503b8b7bfb4 100644
+index bebc80f32e1f..56503b8b7bfb 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/PaginatedGridViewModel.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/PaginatedGridViewModel.kt
 @@ -16,6 +16,7 @@
@@ -1776,7 +1804,7 @@ index bebc80f32e1fe..56503b8b7bfb4 100644
          falsingInteractor.isFalseTouch(QS_SWIPE_SIDE)
      }
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QSColumnsViewModel.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QSColumnsViewModel.kt
-index 4f6057409f651..22adbe84f4276 100644
+index 4f6057409f65..22adbe84f427 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QSColumnsViewModel.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QSColumnsViewModel.kt
 @@ -21,14 +21,18 @@ import androidx.compose.runtime.getValue
@@ -1834,7 +1862,7 @@ index 4f6057409f651..22adbe84f4276 100644
      override suspend fun onActivated(): Nothing {
          coroutineScope {
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
-index 5515510832944..42fe47245bb3c 100644
+index 551551083294..42fe47245bb3 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/panels/ui/viewmodel/QuickQuickSettingsViewModel.kt
 @@ -25,15 +25,18 @@ import com.android.systemui.lifecycle.Hydrator
@@ -1882,7 +1910,7 @@ index 5515510832944..42fe47245bb3c 100644
          currentTiles
              .map { SizedTileImpl(TileViewModel(it.tile, it.spec), it.spec.width()) }
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/shared/model/TileCategory.kt b/packages/SystemUI/src/com/android/systemui/qs/shared/model/TileCategory.kt
-index 94f0125a5212f..66cd1d96942ec 100644
+index 94f0125a5212..66cd1d96942e 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/shared/model/TileCategory.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/shared/model/TileCategory.kt
 @@ -27,6 +27,10 @@ import com.android.systemui.res.R
@@ -1898,7 +1926,7 @@ index 94f0125a5212f..66cd1d96942ec 100644
          R.drawable.ic_qs_category_connectivty,
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbDebuggingTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbDebuggingTile.java
 new file mode 100644
-index 0000000000000..91a4b03d75e34
+index 000000000000..91a4b03d75e3
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbDebuggingTile.java
 @@ -0,0 +1,122 @@
@@ -2026,10 +2054,10 @@ index 0000000000000..91a4b03d75e34
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbRootTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbRootTile.java
 new file mode 100644
-index 0000000000000..9fd5d7e57f7d3
+index 000000000000..df57bc1d1d72
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbRootTile.java
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,135 @@
 +package com.android.systemui.qs.tiles;
 +
 +import android.adb.ADBRootService;
@@ -2037,7 +2065,6 @@ index 0000000000000..9fd5d7e57f7d3
 +import android.database.ContentObserver;
 +import android.os.Handler;
 +import android.os.Looper;
-+import android.os.SystemProperties;
 +import android.os.UserManager;
 +import android.provider.Settings;
 +import android.service.quicksettings.Tile;
@@ -2063,10 +2090,6 @@ index 0000000000000..9fd5d7e57f7d3
 +
 +public class AdbRootTile extends QSTileImpl<BooleanState> {
 +    public static final String TILE_SPEC = "adb_root";
-+
-+    private static final String PROP_ADB_ROOT = "service.adb.root";
-+    private static final String PROP_CTL_RESTART = "ctl.restart";
-+    private static final String SERVICE_ADBD = "adbd";
 +
 +    private final Handler mMainHandler;
 +    private final ContentObserver mObserver;
@@ -2115,11 +2138,6 @@ index 0000000000000..9fd5d7e57f7d3
 +        boolean newValue = !isAdbRootEnabled();
 +        AdbUsbSupport.setAdbEnabled(mContext, true);
 +        mADBRootService.setEnabled(newValue);
-+        try {
-+            SystemProperties.set(PROP_ADB_ROOT, newValue ? "1" : "0");
-+            SystemProperties.set(PROP_CTL_RESTART, SERVICE_ADBD);
-+        } catch (RuntimeException ignored) {
-+        }
 +        refreshState();
 +    }
 +
@@ -2177,7 +2195,7 @@ index 0000000000000..9fd5d7e57f7d3
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbUsbSupport.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbUsbSupport.java
 new file mode 100644
-index 0000000000000..4d7116a55a0fb
+index 000000000000..4d7116a55a0f
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbUsbSupport.java
 @@ -0,0 +1,46 @@
@@ -2229,7 +2247,7 @@ index 0000000000000..4d7116a55a0fb
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/GpsRefreshTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/GpsRefreshTile.java
 new file mode 100644
-index 0000000000000..ecef9ae1c1f6c
+index 000000000000..ecef9ae1c1f6
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/GpsRefreshTile.java
 @@ -0,0 +1,152 @@
@@ -2387,7 +2405,7 @@ index 0000000000000..ecef9ae1c1f6c
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/ScreenTimeoutTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/ScreenTimeoutTile.java
 new file mode 100644
-index 0000000000000..f55c9b1228e70
+index 000000000000..f55c9b1228e7
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/ScreenTimeoutTile.java
 @@ -0,0 +1,155 @@
@@ -2548,7 +2566,7 @@ index 0000000000000..f55c9b1228e70
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/SplitScreenTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/SplitScreenTile.java
 new file mode 100644
-index 0000000000000..0f3bf8e711895
+index 000000000000..c2e9e0460219
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/SplitScreenTile.java
 @@ -0,0 +1,98 @@
@@ -2640,7 +2658,7 @@ index 0000000000000..0f3bf8e711895
 +    protected void handleUpdateState(BooleanState state, Object arg) {
 +        state.value = false;
 +        state.label = getTileLabel();
-+        state.icon = maybeLoadResourceIcon(R.drawable.ic_open_in_new_window);
++        state.icon = maybeLoadResourceIcon(R.drawable.qs_split_screen_icon);
 +        state.state = Tile.STATE_INACTIVE;
 +        state.contentDescription = state.label;
 +    }
@@ -2652,7 +2670,7 @@ index 0000000000000..0f3bf8e711895
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/UsbModeTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/UsbModeTile.java
 new file mode 100644
-index 0000000000000..94718032e0941
+index 000000000000..94718032e094
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/UsbModeTile.java
 @@ -0,0 +1,174 @@
@@ -2831,7 +2849,7 @@ index 0000000000000..94718032e0941
 +    }
 +}
 diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/impl/cell/domain/interactor/MobileDataTileUserActionInteractor.kt b/packages/SystemUI/src/com/android/systemui/qs/tiles/impl/cell/domain/interactor/MobileDataTileUserActionInteractor.kt
-index 3433d091cb2d7..a92d052337e74 100644
+index 3433d091cb2d..a92d052337e7 100644
 --- a/packages/SystemUI/src/com/android/systemui/qs/tiles/impl/cell/domain/interactor/MobileDataTileUserActionInteractor.kt
 +++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/impl/cell/domain/interactor/MobileDataTileUserActionInteractor.kt
 @@ -16,34 +16,22 @@
@@ -2908,7 +2926,7 @@ index 3433d091cb2d7..a92d052337e74 100644
      }
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/pipeline/battery/ui/composable/BatteryWithChargeStatus.kt b/packages/SystemUI/src/com/android/systemui/statusbar/pipeline/battery/ui/composable/BatteryWithChargeStatus.kt
-index 01862d2c818ee..855661abe7a24 100644
+index 01862d2c818e..855661abe7a2 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/pipeline/battery/ui/composable/BatteryWithChargeStatus.kt
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/pipeline/battery/ui/composable/BatteryWithChargeStatus.kt
 @@ -137,7 +137,9 @@ private fun shouldShowPercent(
@@ -2923,7 +2941,7 @@ index 01862d2c818ee..855661abe7a24 100644
      }
  }
 diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt b/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
-index f07593387fde6..038efc81b11e5 100644
+index f07593387fde..b037f0d7d0b8 100644
 --- a/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
 +++ b/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
 @@ -29,18 +29,24 @@ import com.android.systemui.qs.QsEventLogger
@@ -2951,7 +2969,19 @@ index f07593387fde6..038efc81b11e5 100644
  import com.android.systemui.qs.tiles.WorkModeTile
  import com.android.systemui.qs.tiles.base.domain.interactor.QSTileAvailabilityInteractor
  import com.android.systemui.qs.tiles.base.shared.model.QSTileConfig
-@@ -491,6 +497,150 @@ interface PolicyModule {
+@@ -165,7 +171,10 @@ interface PolicyModule {
+                 tileSpec = TileSpec.create(FLASHLIGHT_TILE_SPEC),
+                 uiConfig =
+                     QSTileUIConfig.Resource(
+-                        iconRes = R.drawable.qs_flashlight_icon_off,
++                        // Compose QS edit mode uses painterResource(), which cannot load
++                        // animated-vector XML resources. Use the static vector here; the
++                        // runtime flashlight tile can still use animated icons in its state.
++                        iconRes = R.drawable.vd_flashlight_off,
+                         labelRes = R.string.quick_settings_flashlight_label,
+                     ),
+                 instanceId = uiEventLogger.getNewInstanceId(),
+@@ -491,6 +500,150 @@ interface PolicyModule {
          ): QSTileImpl<*> {
              return if (FlashlightStrength.isEnabled) levelTile.get() else binaryTile.get()
          }
@@ -3013,7 +3043,7 @@ index f07593387fde6..038efc81b11e5 100644
 +                tileSpec = TileSpec.create(SplitScreenTile.TILE_SPEC),
 +                uiConfig =
 +                    QSTileUIConfig.Resource(
-+                        iconRes = R.drawable.ic_open_in_new_window,
++                        iconRes = R.drawable.qs_split_screen_icon,
 +                        labelRes = R.string.quick_settings_split_screen_label,
 +                    ),
 +                instanceId = uiEventLogger.getNewInstanceId(),
@@ -3102,7 +3132,7 @@ index f07593387fde6..038efc81b11e5 100644
      }
  
      @Binds
-@@ -508,6 +658,36 @@ interface PolicyModule {
+@@ -508,6 +661,36 @@ interface PolicyModule {
      @StringKey(SuperFlashlightTile.TILE_SPEC)
      fun bindSuperFlashlightTile(tile: SuperFlashlightTile): QSTileImpl<*>
  
@@ -3140,7 +3170,7 @@ index f07593387fde6..038efc81b11e5 100644
      @Binds
      @IntoMap
 diff --git a/packages/SystemUI/src/com/android/systemui/volume/VolumeDialogImpl.java b/packages/SystemUI/src/com/android/systemui/volume/VolumeDialogImpl.java
-index 8bc023e244a07..57d82cf1b155b 100644
+index 8bc023e244a0..57d82cf1b155 100644
 --- a/packages/SystemUI/src/com/android/systemui/volume/VolumeDialogImpl.java
 +++ b/packages/SystemUI/src/com/android/systemui/volume/VolumeDialogImpl.java
 @@ -121,7 +121,6 @@ import com.android.systemui.Prefs;
@@ -3162,7 +3192,7 @@ index 8bc023e244a07..57d82cf1b155b 100644
  
      @VisibleForTesting void addSliderHapticsToRows() {
 diff --git a/packages/SystemUI/src/com/android/systemui/volume/dialog/sliders/ui/VolumeDialogSliderViewBinder.kt b/packages/SystemUI/src/com/android/systemui/volume/dialog/sliders/ui/VolumeDialogSliderViewBinder.kt
-index 82fabca7a848a..61b453b02e642 100644
+index 82fabca7a848..61b453b02e64 100644
 --- a/packages/SystemUI/src/com/android/systemui/volume/dialog/sliders/ui/VolumeDialogSliderViewBinder.kt
 +++ b/packages/SystemUI/src/com/android/systemui/volume/dialog/sliders/ui/VolumeDialogSliderViewBinder.kt
 @@ -17,7 +17,6 @@
@@ -3234,7 +3264,7 @@ index 82fabca7a848a..61b453b02e642 100644
          track = { sliderState ->
              SliderTrack(
 diff --git a/packages/SystemUI/src/com/android/systemui/wmshell/WMShell.java b/packages/SystemUI/src/com/android/systemui/wmshell/WMShell.java
-index fe951a16f2913..48ef0315fa327 100644
+index fe951a16f291..48ef0315fa32 100644
 --- a/packages/SystemUI/src/com/android/systemui/wmshell/WMShell.java
 +++ b/packages/SystemUI/src/com/android/systemui/wmshell/WMShell.java
 @@ -30,6 +30,8 @@ import static com.android.systemui.shared.system.QuickStepContract.SYSUI_STATE_Q
@@ -3286,7 +3316,7 @@ index fe951a16f2913..48ef0315fa327 100644
              @Override
              public void onSplitAnimationInvoked(boolean animationRunning) {
 diff --git a/packages/SystemUI/tests/src/com/android/systemui/volume/VolumeDialogImplTest.java b/packages/SystemUI/tests/src/com/android/systemui/volume/VolumeDialogImplTest.java
-index 8478276094043..de1947aed5c3b 100644
+index 847827609404..de1947aed5c3 100644
 --- a/packages/SystemUI/tests/src/com/android/systemui/volume/VolumeDialogImplTest.java
 +++ b/packages/SystemUI/tests/src/com/android/systemui/volume/VolumeDialogImplTest.java
 @@ -288,16 +288,16 @@ public class VolumeDialogImplTest extends SysuiTestCase {
@@ -3311,7 +3341,7 @@ index 8478276094043..de1947aed5c3b 100644
  
      @Test
 diff --git a/packages/SystemUI/tests/utils/src/com/android/systemui/volume/dialog/sliders/ui/VolumeDialogSliderViewBinderKosmos.kt b/packages/SystemUI/tests/utils/src/com/android/systemui/volume/dialog/sliders/ui/VolumeDialogSliderViewBinderKosmos.kt
-index 0e243c1f44268..db26effd4bdaa 100644
+index 0e243c1f4426..db26effd4bda 100644
 --- a/packages/SystemUI/tests/utils/src/com/android/systemui/volume/dialog/sliders/ui/VolumeDialogSliderViewBinderKosmos.kt
 +++ b/packages/SystemUI/tests/utils/src/com/android/systemui/volume/dialog/sliders/ui/VolumeDialogSliderViewBinderKosmos.kt
 @@ -16,7 +16,6 @@
@@ -3332,7 +3362,7 @@ index 0e243c1f44268..db26effd4bdaa 100644
      }
 diff --git a/services/core/java/com/android/server/LieppOSRefreshRateService.java b/services/core/java/com/android/server/LieppOSRefreshRateService.java
 new file mode 100644
-index 0000000000000..02b72e2f29b84
+index 000000000000..02b72e2f29b8
 --- /dev/null
 +++ b/services/core/java/com/android/server/LieppOSRefreshRateService.java
 @@ -0,0 +1,152 @@
@@ -3490,7 +3520,7 @@ index 0000000000000..02b72e2f29b84
 +}
 diff --git a/services/core/java/com/android/server/Smart5gService.java b/services/core/java/com/android/server/Smart5gService.java
 new file mode 100644
-index 0000000000000..92d009b07fb27
+index 000000000000..92d009b07fb2
 --- /dev/null
 +++ b/services/core/java/com/android/server/Smart5gService.java
 @@ -0,0 +1,238 @@
@@ -3733,7 +3763,7 @@ index 0000000000000..92d009b07fb27
 +    }
 +}
 diff --git a/services/core/java/com/android/server/adb/AdbService.java b/services/core/java/com/android/server/adb/AdbService.java
-index 9dd313f5f1ad9..dbd744a6acf16 100644
+index 9dd313f5f1ad..dbd744a6acf1 100644
 --- a/services/core/java/com/android/server/adb/AdbService.java
 +++ b/services/core/java/com/android/server/adb/AdbService.java
 @@ -23,6 +23,7 @@ import android.content.ContentResolver;
@@ -3865,12 +3895,65 @@ index 9dd313f5f1ad9..dbd744a6acf16 100644
          // make sure the ADB_ENABLED setting value matches the current state
          try {
              Settings.Global.putInt(
+diff --git a/services/core/java/com/android/server/appop/AppOpsService.java b/services/core/java/com/android/server/appop/AppOpsService.java
+index 93349d708daf..a911919b46d5 100644
+--- a/services/core/java/com/android/server/appop/AppOpsService.java
++++ b/services/core/java/com/android/server/appop/AppOpsService.java
+@@ -80,6 +80,7 @@ import static com.android.internal.util.FrameworkStatsLog.APP_OP_NOTE_OP_OR_CHEC
+ import static com.android.internal.util.FrameworkStatsLog.APP_OP_NOTE_OP_OR_CHECK_OP_BINDER_API_CALLED__BINDER_API__NOTE_OPERATION;
+ import static com.android.internal.util.FrameworkStatsLog.APP_OP_NOTE_OP_OR_CHECK_OP_BINDER_API_CALLED__BINDER_API__NOTE_PROXY_OPERATION;
+ import static com.android.server.appop.AppOpsService.ModeCallback.ALL_OPS;
++import static com.android.server.pm.ComputerEngine.isMicrogSigned;
+ 
+ import android.Manifest;
+ import android.annotation.NonNull;
+@@ -4938,6 +4939,27 @@ public class AppOpsService extends IAppOpsService.Stub {
+                 packageState.getAppId()) == PackageManager.PERMISSION_GRANTED);
+     }
+ 
++    private @Nullable PackageVerificationResult getMicrogPhonePackageCompatBypass(int uid,
++            @Nullable String packageName, int proxyUid, @Nullable String proxyPackageName,
++            boolean isProxyTrusted) {
++        if (!"com.android.phone".equals(packageName)) {
++            return null;
++        }
++
++        PackageState packageState = getPackageManagerInternal().getPackageStateInternal(
++                "com.google.android.gms");
++        AndroidPackage pkg = packageState == null ? null : packageState.getAndroidPackage();
++        int userId = UserHandle.getUserId(uid);
++        if (pkg == null || UserHandle.getUid(userId, packageState.getAppId()) != uid
++                || !isMicrogSigned(pkg)) {
++            return null;
++        }
++
++        return new PackageVerificationResult(getBypassforPackage(packageState),
++                /* isAttributionTagValid */ isProxyTrusted
++                && isPackageNullOrSystem(proxyPackageName, proxyUid));
++    }
++
+     /**
+      * @see #verifyAndGetBypass(int, String, String, int, String, boolean, boolean)
+      */
+@@ -5035,6 +5057,12 @@ public class AppOpsService extends IAppOpsService.Stub {
+         }
+         if (nonAppUid != Process.INVALID_UID) {
+             if (nonAppUid != UserHandle.getAppId(uid)) {
++                PackageVerificationResult microgCompatBypass =
++                        getMicrogPhonePackageCompatBypass(uid, packageName, proxyUid,
++                                proxyPackageName, isProxyTrusted);
++                if (microgCompatBypass != null) {
++                    return microgCompatBypass;
++                }
+                 if (!suppressErrorLogs) {
+                     Slog.e(TAG, "Bad call made by uid " + callingUid + ". "
+                                 + "Package \"" + packageName + "\" does not belong to uid " + uid
 diff --git a/services/core/java/com/android/server/display/SmoothDisplayService.java b/services/core/java/com/android/server/display/SmoothDisplayService.java
 new file mode 100644
-index 0000000000000..88539f4a35110
+index 000000000000..69624b85fb74
 --- /dev/null
 +++ b/services/core/java/com/android/server/display/SmoothDisplayService.java
-@@ -0,0 +1,180 @@
+@@ -0,0 +1,279 @@
 +/*
 + * Copyright (C) 2026 LieppOS
 + *
@@ -3889,16 +3972,21 @@ index 0000000000000..88539f4a35110
 +import android.net.Uri;
 +import android.os.Handler;
 +import android.os.Looper;
++import android.os.IBinder;
++import android.os.Parcel;
++import android.os.ServiceManager;
 +import android.os.UserHandle;
 +import android.provider.Settings;
 +import android.util.Slog;
 +import android.view.Display;
++import android.view.SurfaceControl;
 +
 +import com.android.server.SystemService;
 +
 +public class SmoothDisplayService extends SystemService {
 +
 +    private static final String TAG = "SmoothDisplayService";
++    private static volatile SmoothDisplayService sInstance;
 +
 +    private static final String PEAK = Settings.System.PEAK_REFRESH_RATE;
 +    private static final String MIN  = Settings.System.MIN_REFRESH_RATE;
@@ -3906,9 +3994,14 @@ index 0000000000000..88539f4a35110
 +    private static final int DEFAULT_TIMEOUT_SEC = 5;
 +    private static final int DEFAULT_IDLE_HZ = 60;
 +
++    private static final int SF_BACKDOOR_SET_ACTIVE_MODE = 1035;
++    private static final String SURFACE_COMPOSER_DESCRIPTOR = "android.ui.ISurfaceComposer";
++
 +    private final Context mContext;
 +    private final Handler mHandler;
 +    private DisplayManager mDm;
++    private long mPhysicalDisplayId = -1;
++    private IBinder mDisplayToken;
 +
 +    private boolean mEnabled;
 +    private int mPeakHz;
@@ -3925,6 +4018,14 @@ index 0000000000000..88539f4a35110
 +        super(context);
 +        mContext = context;
 +        mHandler = new Handler(Looper.getMainLooper());
++        sInstance = this;
++    }
++
++    public static void notifyUserActivity() {
++        SmoothDisplayService service = sInstance;
++        if (service != null) {
++            service.mHandler.post(service::onActivity);
++        }
 +    }
 +
 +    @Override
@@ -3936,6 +4037,7 @@ index 0000000000000..88539f4a35110
 +
 +        mDm = mContext.getSystemService(DisplayManager.class);
 +        detectPanelRange();
++        detectPhysicalDisplay();
 +
 +        ContentResolver cr = mContext.getContentResolver();
 +        ContentObserver obs = new ContentObserver(mHandler) {
@@ -3977,6 +4079,17 @@ index 0000000000000..88539f4a35110
 +        }
 +    }
 +
++    private void detectPhysicalDisplay() {
++        try {
++            long[] ids = DisplayControl.getPhysicalDisplayIds();
++            if (ids.length == 0) return;
++            mPhysicalDisplayId = ids[0];
++            mDisplayToken = DisplayControl.getPhysicalDisplayToken(mPhysicalDisplayId);
++        } catch (Throwable t) {
++            Slog.w(TAG, "detectPhysicalDisplay failed", t);
++        }
++    }
++
 +    private final BroadcastReceiver mScreenReceiver = new BroadcastReceiver() {
 +        @Override public void onReceive(Context c, Intent i) {
 +            String a = i.getAction();
@@ -4014,6 +4127,7 @@ index 0000000000000..88539f4a35110
 +            mIdleActive = false;
 +            Settings.System.putFloatForUser(cr, PEAK, 0f, UserHandle.USER_CURRENT);
 +            Settings.System.putFloatForUser(cr, MIN, 0f, UserHandle.USER_CURRENT);
++            applySurfaceFlingerMode(mPanelMaxHz, 0, mPanelMaxHz);
 +        }
 +    }
 +
@@ -4043,16 +4157,84 @@ index 0000000000000..88539f4a35110
 +        ContentResolver cr = mContext.getContentResolver();
 +        Settings.System.putFloatForUser(cr, PEAK, (float) mPeakHz, UserHandle.USER_CURRENT);
 +        Settings.System.putFloatForUser(cr, MIN, (float) mIdleHz, UserHandle.USER_CURRENT);
++        applySurfaceFlingerMode(mPeakHz, mIdleHz, mPeakHz);
 +    }
 +
 +    private void applyIdleRefresh() {
 +        ContentResolver cr = mContext.getContentResolver();
 +        Settings.System.putFloatForUser(cr, PEAK, (float) mIdleHz, UserHandle.USER_CURRENT);
 +        Settings.System.putFloatForUser(cr, MIN, (float) mIdleHz, UserHandle.USER_CURRENT);
++        applySurfaceFlingerMode(mIdleHz, mIdleHz, mIdleHz);
++    }
++
++    private void applySurfaceFlingerMode(int defaultHz, int minHz, int maxHz) {
++        if (mDisplayToken == null || mPhysicalDisplayId < 0) {
++            detectPhysicalDisplay();
++        }
++        if (mDisplayToken == null || mPhysicalDisplayId < 0) return;
++
++        try {
++            SurfaceControl.DynamicDisplayInfo info =
++                    SurfaceControl.getDynamicDisplayInfo(mPhysicalDisplayId);
++            if (info == null || info.supportedDisplayModes == null) return;
++
++            int sfModeId = findClosestSfModeId(info, defaultHz);
++            if (sfModeId < 0) return;
++
++            SurfaceControl.RefreshRateRange primary =
++                    new SurfaceControl.RefreshRateRange(minHz, maxHz);
++            SurfaceControl.RefreshRateRanges ranges = new SurfaceControl.RefreshRateRanges(
++                    primary, primary);
++            SurfaceControl.DesiredDisplayModeSpecs specs =
++                    new SurfaceControl.DesiredDisplayModeSpecs(sfModeId, false,
++                            ranges, ranges, null);
++            boolean ok = SurfaceControl.setDesiredDisplayModeSpecs(mDisplayToken, specs);
++            boolean backdoorOk = applySurfaceFlingerBackdoorMode(sfModeId, minHz, maxHz);
++            Slog.d(TAG, "applySurfaceFlingerMode hz=" + defaultHz + " range=" + minHz
++                    + "-" + maxHz + " sfModeId=" + sfModeId + " ok=" + ok
++                    + " backdoorOk=" + backdoorOk);
++        } catch (Throwable t) {
++            Slog.w(TAG, "applySurfaceFlingerMode failed", t);
++        }
++    }
++
++    private boolean applySurfaceFlingerBackdoorMode(int sfModeId, int minHz, int maxHz) {
++        Parcel data = Parcel.obtain();
++        Parcel reply = Parcel.obtain();
++        try {
++            IBinder sf = ServiceManager.getService("SurfaceFlinger");
++            if (sf == null) return false;
++            data.writeInterfaceToken(SURFACE_COMPOSER_DESCRIPTOR);
++            data.writeInt(sfModeId);
++            data.writeLong(mPhysicalDisplayId);
++            data.writeFloat((float) minHz);
++            data.writeFloat((float) maxHz);
++            return sf.transact(SF_BACKDOOR_SET_ACTIVE_MODE, data, reply, 0);
++        } catch (Throwable t) {
++            Slog.w(TAG, "applySurfaceFlingerBackdoorMode failed", t);
++            return false;
++        } finally {
++            reply.recycle();
++            data.recycle();
++        }
++    }
++
++    private int findClosestSfModeId(SurfaceControl.DynamicDisplayInfo info, int targetHz) {
++        int bestId = -1;
++        float bestDelta = Float.MAX_VALUE;
++        for (SurfaceControl.DisplayMode mode : info.supportedDisplayModes) {
++            float hz = mode.peakRefreshRate > 0 ? mode.peakRefreshRate : mode.vsyncRate;
++            float delta = Math.abs(hz - targetHz);
++            if (delta < bestDelta) {
++                bestDelta = delta;
++                bestId = mode.id;
++            }
++        }
++        return bestId;
 +    }
 +}
 diff --git a/services/core/java/com/android/server/notification/VibratorHelper.java b/services/core/java/com/android/server/notification/VibratorHelper.java
-index f54c1f7654dc1..e5ba0302888e0 100644
+index f54c1f7654dc..e5ba0302888e 100644
 --- a/services/core/java/com/android/server/notification/VibratorHelper.java
 +++ b/services/core/java/com/android/server/notification/VibratorHelper.java
 @@ -31,6 +31,7 @@ import android.os.Process;
@@ -4123,11 +4305,48 @@ index f54c1f7654dc1..e5ba0302888e0 100644
      }
  
      /**
+diff --git a/services/core/java/com/android/server/pm/ComputerEngine.java b/services/core/java/com/android/server/pm/ComputerEngine.java
+index 1cc02de121f8..a5fcba62351b 100644
+--- a/services/core/java/com/android/server/pm/ComputerEngine.java
++++ b/services/core/java/com/android/server/pm/ComputerEngine.java
+@@ -108,6 +108,7 @@ import android.os.IBinder;
+ import android.os.ParcelableException;
+ import android.os.PatternMatcher;
+ import android.os.Process;
++import android.os.SystemProperties;
+ import android.os.Trace;
+ import android.os.UserHandle;
+ import android.os.UserManager;
+@@ -1484,9 +1485,15 @@ public class ComputerEngine implements Computer {
+     }
+ 
+     private static native boolean isDebuggable();
++    private static final String MICROG_SPOOFING_PROP =
++            "ro.lieppos.microg_restricted_spoofing";
++
++    private static boolean isMicrogSpoofingEnabled() {
++        return isDebuggable() || SystemProperties.getBoolean(MICROG_SPOOFING_PROP, false);
++    }
+ 
+     public static boolean isMicrogSigned(AndroidPackage p) {
+-        if (!isDebuggable()) {
++        if (!isMicrogSpoofingEnabled()) {
+             return false;
+         }
+ 
 diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-index e4cc1c73b8dc0..64383546eb677 100644
+index e4cc1c73b8dc..ee31ae0619e3 100644
 --- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
 +++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-@@ -817,6 +817,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -257,6 +257,7 @@ import com.android.server.GestureLauncherService;
+ import com.android.server.LocalServices;
+ import com.android.server.SystemServiceManager;
+ import com.android.server.UiThread;
++import com.android.server.display.SmoothDisplayService;
+ import com.android.server.input.InputManagerInternal;
+ import com.android.server.inputmethod.InputMethodManagerInternal;
+ import com.android.server.pm.UserManagerInternal;
+@@ -817,6 +818,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
      // Lineage additions
      private static final int MSG_TOGGLE_TORCH = 100;
      private static final int MSG_CAMERA_LONG_PRESS = 101;
@@ -4135,7 +4354,7 @@ index e4cc1c73b8dc0..64383546eb677 100644
  
      private CameraManager mCameraManager;
      private String mRearFlashCameraId;
-@@ -829,6 +830,18 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -829,6 +831,18 @@ public class PhoneWindowManager implements WindowManagerPolicy {
      private CameraAvailbilityListener mCameraAvailabilityListener;
      private ScreenshotHelper mScreenshotHelper;
  
@@ -4154,7 +4373,7 @@ index e4cc1c73b8dc0..64383546eb677 100644
      private class PolicyHandler extends Handler {
  
          private PolicyHandler(Looper looper) {
-@@ -918,6 +931,19 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -918,6 +932,19 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                  case MSG_CAMERA_LONG_PRESS:
                      mIsLongPress = true;
                      break;
@@ -4174,7 +4393,7 @@ index e4cc1c73b8dc0..64383546eb677 100644
              }
          }
      }
-@@ -1073,11 +1099,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -1073,11 +1100,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
              resolver.registerContentObserver(LineageSettings.System.getUriFor(
                      LineageSettings.System.VOLUME_ANSWER_CALL), false, this,
                      UserHandle.USER_ALL);
@@ -4190,7 +4409,7 @@ index e4cc1c73b8dc0..64383546eb677 100644
          }
      }
  
-@@ -2621,9 +2651,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -2621,9 +2652,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
  
          mHandler = new PolicyHandler(injector.getLooper());
          mScreenshotHelper = new ScreenshotHelper(mContext);
@@ -4206,7 +4425,7 @@ index e4cc1c73b8dc0..64383546eb677 100644
  
          // Lineage additions
          mAlarmManager = mContext.getSystemService(AlarmManager.class);
-@@ -3350,6 +3386,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -3350,6 +3387,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
          updateSettings(null);
      }
  
@@ -4228,7 +4447,7 @@ index e4cc1c73b8dc0..64383546eb677 100644
      /**
       * Update provider Setting values on a given {@code handler}, or synchronously if {@code null}
       * is passed for handler.
-@@ -5185,6 +5236,39 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -5185,6 +5237,39 @@ public class PhoneWindowManager implements WindowManagerPolicy {
              case KeyEvent.KEYCODE_VOLUME_DOWN:
              case KeyEvent.KEYCODE_VOLUME_UP:
              case KeyEvent.KEYCODE_VOLUME_MUTE: {
@@ -4268,9 +4487,17 @@ index e4cc1c73b8dc0..64383546eb677 100644
                  // Eat all down & up keys when using volume wake.
                  // This disables volume control, music control, and "beep" on key up.
                  if (isWakeKey && mWakeOnVolumeKeyPress) {
+@@ -6851,6 +6936,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+     public void userActivity(int displayGroupId, int event) {
+         if (displayGroupId == DEFAULT_DISPLAY && event == PowerManager.USER_ACTIVITY_EVENT_TOUCH) {
+             mDefaultDisplayPolicy.onUserActivityEventTouch();
++            SmoothDisplayService.notifyUserActivity();
+         }
+         synchronized (mScreenLockTimeout) {
+             if (mLockScreenTimerActive) {
 diff --git a/services/core/java/com/android/server/policy/SwipeToScreenshotListener.java b/services/core/java/com/android/server/policy/SwipeToScreenshotListener.java
 new file mode 100644
-index 0000000000000..077c2940bc144
+index 000000000000..077c2940bc14
 --- /dev/null
 +++ b/services/core/java/com/android/server/policy/SwipeToScreenshotListener.java
 @@ -0,0 +1,112 @@
@@ -4388,7 +4615,7 @@ index 0000000000000..077c2940bc144
 +}
 diff --git a/services/core/java/com/android/server/power/SleepModeService.java b/services/core/java/com/android/server/power/SleepModeService.java
 new file mode 100644
-index 0000000000000..f87241409826b
+index 000000000000..f87241409826
 --- /dev/null
 +++ b/services/core/java/com/android/server/power/SleepModeService.java
 @@ -0,0 +1,568 @@
@@ -4961,7 +5188,7 @@ index 0000000000000..f87241409826b
 +    }
 +}
 diff --git a/services/core/java/com/android/server/power/stats/BluetoothPowerStatsCollector.java b/services/core/java/com/android/server/power/stats/BluetoothPowerStatsCollector.java
-index e0ea7b0359b26..003c5f3bd8acc 100644
+index e0ea7b0359b2..003c5f3bd8ac 100644
 --- a/services/core/java/com/android/server/power/stats/BluetoothPowerStatsCollector.java
 +++ b/services/core/java/com/android/server/power/stats/BluetoothPowerStatsCollector.java
 @@ -191,7 +191,7 @@ public class BluetoothPowerStatsCollector extends PowerStatsCollector {
@@ -4974,7 +5201,7 @@ index e0ea7b0359b26..003c5f3bd8acc 100644
          }
  
 diff --git a/services/java/com/android/server/SystemServer.java b/services/java/com/android/server/SystemServer.java
-index a184d6a7efe8e..f5c979717c51c 100644
+index a184d6a7efe8..f5c979717c51 100644
 --- a/services/java/com/android/server/SystemServer.java
 +++ b/services/java/com/android/server/SystemServer.java
 @@ -240,6 +240,8 @@ import com.android.server.policy.PhoneWindowManager;
@@ -5033,7 +5260,7 @@ index a184d6a7efe8e..f5c979717c51c 100644
  
              t.traceBegin("StartColorDisplay");
 diff --git a/services/usb/java/com/android/server/usb/UsbDeviceManager.java b/services/usb/java/com/android/server/usb/UsbDeviceManager.java
-index 9a2183128c3fb..0191c006d6f87 100644
+index 9a2183128c3f..0191c006d6f8 100644
 --- a/services/usb/java/com/android/server/usb/UsbDeviceManager.java
 +++ b/services/usb/java/com/android/server/usb/UsbDeviceManager.java
 @@ -898,7 +898,7 @@ public class UsbDeviceManager implements ActivityTaskManagerInternal.ScreenObser
