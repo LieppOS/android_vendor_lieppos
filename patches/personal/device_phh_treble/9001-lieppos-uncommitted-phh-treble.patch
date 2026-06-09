@@ -1,7 +1,7 @@
-From 378a96f54abb192c12465febcec5d4bfe89afd08 Mon Sep 17 00:00:00 2001
-From: LieppOS <lieppos@local>
-Date: Sun, 24 May 2026 14:47:47 +0300
-Subject: [PATCH] LieppOS uncommitted WIP: device/phh/treble
+From c6f26ae652ed0f3eccd0af39643382a28df55364 Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Tue, 9 Jun 2026 03:28:40 +0300
+Subject: [PATCH] LieppOS uncommitted WIP: device/phh/treble (incl. fingerprint phantom-HAL hide)
 
 ---
  AndroidProducts.mk            |  8 ++--
@@ -22,9 +22,9 @@ Subject: [PATCH] LieppOS uncommitted WIP: device/phh/treble
  lineage_arm64_bvNE_semi.mk    |  6 +++
  lineage_arm64_bvNE_vanilla.mk |  6 +++
  phh-on-boot.sh                | 84 ++++++++++++++++++++++++++++++++++-
- rw-system.sh                  |  5 +++
+ rw-system.sh                  | 32 ++++++++++++-
  vndk.rc                       | 11 +++--
- 20 files changed, 194 insertions(+), 218 deletions(-)
+ 20 files changed, 219 insertions(+), 220 deletions(-)
  delete mode 100644 aex.mk
  delete mode 100644 amyROM.mk
  delete mode 100644 carbon.mk
@@ -574,10 +574,53 @@ index 1adb226..336c558 100644
          setprop sys.usb.config none
          sleep 1
 diff --git a/rw-system.sh b/rw-system.sh
-index 9b6e921..e533488 100644
+index 9b6e921..9ef44e1 100644
 --- a/rw-system.sh
 +++ b/rw-system.sh
-@@ -1074,6 +1074,11 @@ if getprop ro.vendor.build.fingerprint |grep -qiE \
+@@ -410,17 +410,40 @@ fi
+ 
+ foundFingerprint=false
+ for manifest in /vendor/manifest.xml /vendor/etc/vintf /odm/etc/vintf;do
++	# Some vendors ship Android's sample/virtual fingerprint VINTF fragment
++	# (IFingerprint/virtual) without a matching service binary. Treating that as
++	# real hardware makes AuthService register a phantom sensor, which then loops
++	# on missing HIDL/AIDL services and floods logd/hwservicemanager.
+ 	if grep -q \
+-		-e android.hardware.biometrics.fingerprint \
+ 		-e vendor.oppo.hardware.biometrics.fingerprint \
+ 		-e vendor.oplus.hardware.biometrics.fingerprint \
+ 		-r $manifest;then
+ 			foundFingerprint=true
++	elif grep -q -e android.hardware.biometrics.fingerprint -r $manifest \
++		&& ! grep -q -e 'IFingerprint/virtual' -e 'fingerprint-service.example' -r $manifest;then
++			foundFingerprint=true
++	fi
++done
++
++# Hide broken sample virtual fingerprint declarations before Android framework
++# registers them as real sensors.
++for fp_manifest in \
++	/vendor/etc/vintf/manifest/fingerprint-example.xml \
++	/odm/etc/vintf/manifest/fingerprint-example.xml;do
++	if [ -f "$fp_manifest" ] && grep -q 'IFingerprint/virtual' "$fp_manifest";then
++		mount -o bind /mnt/phh/empty "$fp_manifest" || true
+ 	fi
+ done
+ 
+ if [ "$foundFingerprint" = false ];then
+-    mount -o bind /mnt/phh/empty /system/etc/permissions/android.hardware.fingerprint.xml
++	for fp_feature in \
++		/system/etc/permissions/android.hardware.fingerprint.xml \
++		/system_ext/etc/permissions/android.hardware.fingerprint.xml \
++		/product/etc/permissions/android.hardware.fingerprint.xml \
++		/vendor/etc/permissions/android.hardware.fingerprint.xml \
++		/odm/etc/permissions/android.hardware.fingerprint.xml;do
++		[ -f "$fp_feature" ] && mount -o bind /mnt/phh/empty "$fp_feature" || true
++	done
+ fi
+ 
+ if ! grep android.hardware.bluetooth /vendor/manifest.xml && ! grep android.hardware.bluetooth /vendor/etc/vintf/manifest.xml; then
+@@ -1074,6 +1097,11 @@ if getprop ro.vendor.build.fingerprint |grep -qiE \
          -e razer/cheryl ; then
      setprop media.settings.xml "/vendor/etc/media_profiles_vendor.xml"
  fi
