@@ -1,6 +1,13 @@
 
 ### LieppOS
-LieppOS - custom **Android 16** ROM for the Ulefone Armor 29 Thermal built as a Treble GSI on LineageOS 23.2 QPR2 
+LieppOS - custom **Android 16** ROM built as a Treble GSI on LineageOS 23.2 QPR2 
+
+Supported devices:
+- Ulefone Armor 29 Pro Thermal
+
+Upcoming device support:
+- Ulefone Armor mini 20
+- Ulefone Armor 28 Ultra Thermal
 
 For help - join [telegram group](https://t.me/+Svil2PFOQ-lmZTlk)
 
@@ -13,3 +20,8 @@ For help - join [telegram group](https://t.me/+Svil2PFOQ-lmZTlk)
 - [Building](https://github.com/LieppOS/android_vendor_lieppos/wiki/Building)
 - [Installation](https://github.com/LieppOS/android_vendor_lieppos/wiki/Installation)
 - [Rooting](https://github.com/LieppOS/android_vendor_lieppos/wiki/Rooting)
+
+## Credits
+
+- [LineageOS_gsi](https://github.com/MisterZtr/LineageOS_gsi)
+- [LineageOS](https://github.com/LineageOS)
