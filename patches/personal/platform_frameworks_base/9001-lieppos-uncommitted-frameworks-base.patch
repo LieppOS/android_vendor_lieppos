@@ -1,7 +1,7 @@
-From 178d411b00022fa812a43e03e0aafac99b4eef85 Mon Sep 17 00:00:00 2001
+From 12132656bdefa518040b76b918abcf2e0ef27aed Mon Sep 17 00:00:00 2001
 From: LieppOS <lieppos@local>
 Date: Tue, 28 Apr 2026 00:42:42 +0300
-Subject: [PATCH] microG: gate restricted spoofing on
+Subject: [PATCH] LieppOS uncommitted WIP: frameworks/base
  ro.lieppos.microg_restricted_spoofing
 
 Allow the existing restricted microG signature spoofing path when
@@ -53,7 +53,7 @@ Change-Id: I63fda64adbb63ca8cd9072831ef2dba03862b2e1
  .../viewmodel/QuickQuickSettingsViewModel.kt  |  14 +
  .../systemui/qs/shared/model/TileCategory.kt  |   4 +
  .../systemui/qs/tiles/AdbDebuggingTile.java   | 122 ++++
- .../systemui/qs/tiles/AdbRootTile.java        | 137 +++++
+ .../systemui/qs/tiles/AdbRootTile.java        | 135 +++++
  .../systemui/qs/tiles/AdbUsbSupport.java      |  46 ++
  .../systemui/qs/tiles/GpsRefreshTile.java     | 152 +++++
  .../systemui/qs/tiles/ScreenTimeoutTile.java  | 155 +++++
@@ -70,17 +70,15 @@ Change-Id: I63fda64adbb63ca8cd9072831ef2dba03862b2e1
  .../server/LieppOSRefreshRateService.java     | 152 +++++
  .../com/android/server/Smart5gService.java    | 238 ++++++++
  .../com/android/server/adb/AdbService.java    |  90 ++-
- .../android/server/appop/AppOpsService.java   |  28 +
  .../server/display/SmoothDisplayService.java  | 279 +++++++++
  .../server/notification/VibratorHelper.java   |  32 +-
- .../com/android/server/pm/ComputerEngine.java |   9 +-
  .../server/policy/PhoneWindowManager.java     |  86 +++
  .../policy/SwipeToScreenshotListener.java     | 112 ++++
  .../server/power/SleepModeService.java        | 568 ++++++++++++++++++
  .../stats/BluetoothPowerStatsCollector.java   |   2 +-
  .../java/com/android/server/SystemServer.java |  34 ++
  .../android/server/usb/UsbDeviceManager.java  |  13 +-
- 67 files changed, 3426 insertions(+), 326 deletions(-)
+ 65 files changed, 3390 insertions(+), 325 deletions(-)
  create mode 100644 core/res/res/drawable/ic_sleep.xml
  create mode 100644 packages/SystemUI/res/drawable/ic_qs_category_lieppos.xml
  create mode 100644 packages/SystemUI/res/drawable/qs_adb_debugging_icon.xml
@@ -303,10 +301,10 @@ index f9abbcd1b24a..f8f2ce672fc8 100644
      <string name="notification_title_abusive_bg_apps">An app is draining battery</string>
      <!-- Title of notification indicating long running foreground services. [CHAR LIMIT=NONE] -->
 diff --git a/core/res/res/values/symbols.xml b/core/res/res/values/symbols.xml
-index 819b7cc28e5a..a719f2b93e4f 100644
+index c3ef357178cb..3764683d4df2 100644
 --- a/core/res/res/values/symbols.xml
 +++ b/core/res/res/values/symbols.xml
-@@ -5436,6 +5436,12 @@
+@@ -5437,6 +5437,12 @@
    <java-symbol type="array" name="config_dockExtconStateMapping" />
  
    <java-symbol type="string" name="notification_channel_abusive_bg_apps"/>
@@ -3895,59 +3893,6 @@ index 9dd313f5f1ad..dbd744a6acf1 100644
          // make sure the ADB_ENABLED setting value matches the current state
          try {
              Settings.Global.putInt(
-diff --git a/services/core/java/com/android/server/appop/AppOpsService.java b/services/core/java/com/android/server/appop/AppOpsService.java
-index 93349d708daf..a911919b46d5 100644
---- a/services/core/java/com/android/server/appop/AppOpsService.java
-+++ b/services/core/java/com/android/server/appop/AppOpsService.java
-@@ -80,6 +80,7 @@ import static com.android.internal.util.FrameworkStatsLog.APP_OP_NOTE_OP_OR_CHEC
- import static com.android.internal.util.FrameworkStatsLog.APP_OP_NOTE_OP_OR_CHECK_OP_BINDER_API_CALLED__BINDER_API__NOTE_OPERATION;
- import static com.android.internal.util.FrameworkStatsLog.APP_OP_NOTE_OP_OR_CHECK_OP_BINDER_API_CALLED__BINDER_API__NOTE_PROXY_OPERATION;
- import static com.android.server.appop.AppOpsService.ModeCallback.ALL_OPS;
-+import static com.android.server.pm.ComputerEngine.isMicrogSigned;
- 
- import android.Manifest;
- import android.annotation.NonNull;
-@@ -4938,6 +4939,27 @@ public class AppOpsService extends IAppOpsService.Stub {
-                 packageState.getAppId()) == PackageManager.PERMISSION_GRANTED);
-     }
- 
-+    private @Nullable PackageVerificationResult getMicrogPhonePackageCompatBypass(int uid,
-+            @Nullable String packageName, int proxyUid, @Nullable String proxyPackageName,
-+            boolean isProxyTrusted) {
-+        if (!"com.android.phone".equals(packageName)) {
-+            return null;
-+        }
-+
-+        PackageState packageState = getPackageManagerInternal().getPackageStateInternal(
-+                "com.google.android.gms");
-+        AndroidPackage pkg = packageState == null ? null : packageState.getAndroidPackage();
-+        int userId = UserHandle.getUserId(uid);
-+        if (pkg == null || UserHandle.getUid(userId, packageState.getAppId()) != uid
-+                || !isMicrogSigned(pkg)) {
-+            return null;
-+        }
-+
-+        return new PackageVerificationResult(getBypassforPackage(packageState),
-+                /* isAttributionTagValid */ isProxyTrusted
-+                && isPackageNullOrSystem(proxyPackageName, proxyUid));
-+    }
-+
-     /**
-      * @see #verifyAndGetBypass(int, String, String, int, String, boolean, boolean)
-      */
-@@ -5035,6 +5057,12 @@ public class AppOpsService extends IAppOpsService.Stub {
-         }
-         if (nonAppUid != Process.INVALID_UID) {
-             if (nonAppUid != UserHandle.getAppId(uid)) {
-+                PackageVerificationResult microgCompatBypass =
-+                        getMicrogPhonePackageCompatBypass(uid, packageName, proxyUid,
-+                                proxyPackageName, isProxyTrusted);
-+                if (microgCompatBypass != null) {
-+                    return microgCompatBypass;
-+                }
-                 if (!suppressErrorLogs) {
-                     Slog.e(TAG, "Bad call made by uid " + callingUid + ". "
-                                 + "Package \"" + packageName + "\" does not belong to uid " + uid
 diff --git a/services/core/java/com/android/server/display/SmoothDisplayService.java b/services/core/java/com/android/server/display/SmoothDisplayService.java
 new file mode 100644
 index 000000000000..69624b85fb74
@@ -4305,40 +4250,11 @@ index f54c1f7654dc..e5ba0302888e 100644
      }
  
      /**
-diff --git a/services/core/java/com/android/server/pm/ComputerEngine.java b/services/core/java/com/android/server/pm/ComputerEngine.java
-index 1cc02de121f8..a5fcba62351b 100644
---- a/services/core/java/com/android/server/pm/ComputerEngine.java
-+++ b/services/core/java/com/android/server/pm/ComputerEngine.java
-@@ -108,6 +108,7 @@ import android.os.IBinder;
- import android.os.ParcelableException;
- import android.os.PatternMatcher;
- import android.os.Process;
-+import android.os.SystemProperties;
- import android.os.Trace;
- import android.os.UserHandle;
- import android.os.UserManager;
-@@ -1484,9 +1485,15 @@ public class ComputerEngine implements Computer {
-     }
- 
-     private static native boolean isDebuggable();
-+    private static final String MICROG_SPOOFING_PROP =
-+            "ro.lieppos.microg_restricted_spoofing";
-+
-+    private static boolean isMicrogSpoofingEnabled() {
-+        return isDebuggable() || SystemProperties.getBoolean(MICROG_SPOOFING_PROP, false);
-+    }
- 
-     public static boolean isMicrogSigned(AndroidPackage p) {
--        if (!isDebuggable()) {
-+        if (!isMicrogSpoofingEnabled()) {
-             return false;
-         }
- 
 diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-index e4cc1c73b8dc..ee31ae0619e3 100644
+index 6237311b4578..0eb4197d1e3f 100644
 --- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
 +++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
-@@ -257,6 +257,7 @@ import com.android.server.GestureLauncherService;
+@@ -259,6 +259,7 @@ import com.android.server.GestureLauncherService;
  import com.android.server.LocalServices;
  import com.android.server.SystemServiceManager;
  import com.android.server.UiThread;
@@ -4346,7 +4262,7 @@ index e4cc1c73b8dc..ee31ae0619e3 100644
  import com.android.server.input.InputManagerInternal;
  import com.android.server.inputmethod.InputMethodManagerInternal;
  import com.android.server.pm.UserManagerInternal;
-@@ -817,6 +818,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -819,6 +820,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
      // Lineage additions
      private static final int MSG_TOGGLE_TORCH = 100;
      private static final int MSG_CAMERA_LONG_PRESS = 101;
@@ -4354,7 +4270,7 @@ index e4cc1c73b8dc..ee31ae0619e3 100644
  
      private CameraManager mCameraManager;
      private String mRearFlashCameraId;
-@@ -829,6 +831,18 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -831,6 +833,18 @@ public class PhoneWindowManager implements WindowManagerPolicy {
      private CameraAvailbilityListener mCameraAvailabilityListener;
      private ScreenshotHelper mScreenshotHelper;
  
@@ -4373,7 +4289,7 @@ index e4cc1c73b8dc..ee31ae0619e3 100644
      private class PolicyHandler extends Handler {
  
          private PolicyHandler(Looper looper) {
-@@ -918,6 +932,19 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -920,6 +934,19 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                  case MSG_CAMERA_LONG_PRESS:
                      mIsLongPress = true;
                      break;
@@ -4393,7 +4309,7 @@ index e4cc1c73b8dc..ee31ae0619e3 100644
              }
          }
      }
-@@ -1073,11 +1100,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -1075,11 +1102,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
              resolver.registerContentObserver(LineageSettings.System.getUriFor(
                      LineageSettings.System.VOLUME_ANSWER_CALL), false, this,
                      UserHandle.USER_ALL);
@@ -4409,7 +4325,7 @@ index e4cc1c73b8dc..ee31ae0619e3 100644
          }
      }
  
-@@ -2621,9 +2652,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -2627,9 +2658,15 @@ public class PhoneWindowManager implements WindowManagerPolicy {
  
          mHandler = new PolicyHandler(injector.getLooper());
          mScreenshotHelper = new ScreenshotHelper(mContext);
@@ -4425,7 +4341,7 @@ index e4cc1c73b8dc..ee31ae0619e3 100644
  
          // Lineage additions
          mAlarmManager = mContext.getSystemService(AlarmManager.class);
-@@ -3350,6 +3387,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -3356,6 +3393,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
          updateSettings(null);
      }
  
@@ -4447,7 +4363,7 @@ index e4cc1c73b8dc..ee31ae0619e3 100644
      /**
       * Update provider Setting values on a given {@code handler}, or synchronously if {@code null}
       * is passed for handler.
-@@ -5185,6 +5237,39 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -5191,6 +5243,39 @@ public class PhoneWindowManager implements WindowManagerPolicy {
              case KeyEvent.KEYCODE_VOLUME_DOWN:
              case KeyEvent.KEYCODE_VOLUME_UP:
              case KeyEvent.KEYCODE_VOLUME_MUTE: {
@@ -4487,7 +4403,7 @@ index e4cc1c73b8dc..ee31ae0619e3 100644
                  // Eat all down & up keys when using volume wake.
                  // This disables volume control, music control, and "beep" on key up.
                  if (isWakeKey && mWakeOnVolumeKeyPress) {
-@@ -6851,6 +6936,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
+@@ -6857,6 +6942,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
      public void userActivity(int displayGroupId, int event) {
          if (displayGroupId == DEFAULT_DISPLAY && event == PowerManager.USER_ACTIVITY_EVENT_TOUCH) {
              mDefaultDisplayPolicy.onUserActivityEventTouch();

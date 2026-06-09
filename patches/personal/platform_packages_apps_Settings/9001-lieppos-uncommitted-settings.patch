@@ -1,9 +1,9 @@
-From 05849ab75ebd960320a9699158e4fc5a7779287a Mon Sep 17 00:00:00 2001
-From: LieppOS <lieppos@local>
-Date: Sun, 24 May 2026 15:00:09 +0300
+From 5e61415b87b41e389b2344aee6e4dc67b3d3d6af Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Tue, 9 Jun 2026 13:42:16 +0300
 Subject: [PATCH] LieppOS uncommitted WIP: packages/apps/Settings
 
-Change-Id: I75efed42d9acc8e58eec44e7e313eddb555133e1
+Change-Id: I81b8fdbc9124da6194801575130fb3e80afe345b
 ---
  res/drawable/ic_homepage_lieppos.xml          | 10 +++
  res/values/strings.xml                        | 69 +++++++++++++++++++
@@ -35,7 +35,7 @@ index 00000000000..df96cb9216a
 +        android:pathData="M17,8C8,10 5.9,16.17 3.82,21.34L5.71,22l1,-2.3c0.5,0.25 1.09,0.4 1.78,0.4 1.84,0 3.41,-1.04 4.18,-2.55C16.96,17.55 19,15.21 19,11.5 19,9.92 18.61,8.39 17.92,7.13c-0.42,-0.81 -0.92,-1.55 -1.42,-2.13C16,5 14,4 11,5c1,2 2.4,3 3.4,4 1.04,1.05 1.6,2.5 1.6,4 0,3 -2,5 -5,5 -1,0 -2,-0.4 -2.7,-1.1 1.18,-1.96 2.78,-3.59 4.7,-4.9C13.62,11 16.83,9.7 17,8z"/>
 +</vector>
 diff --git a/res/values/strings.xml b/res/values/strings.xml
-index 167aae709c8..bf390d44fa7 100644
+index 91e9ddd6ed8..4de660cfcf2 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
 @@ -13,6 +13,75 @@
@@ -156,7 +156,7 @@ index 950ca2de9e9..ef4765eb60b 100644
          <!-- Charging speed -->
          <ListPreference
 diff --git a/res/xml/top_level_settings.xml b/res/xml/top_level_settings.xml
-index 084393e7f27..fffb22d5bdf 100644
+index a050fd0bd8a..2c74ea3a1ab 100644
 --- a/res/xml/top_level_settings.xml
 +++ b/res/xml/top_level_settings.xml
 @@ -26,6 +26,23 @@
@@ -183,26 +183,8 @@ index 084393e7f27..fffb22d5bdf 100644
      <PreferenceCategory
          android:order="-130"
          android:key="top_level_connectivity_category"
-@@ -302,17 +319,6 @@
-                 android:targetClass="lt.devsecops.androidnfc.ui.SettingsActivity"/>
-         </com.android.settings.widget.HomepagePreference>
- 
--        <com.android.settings.widget.HomepagePreference
--            android:icon="@drawable/ic_settings_system_dashboard_filled"
--            android:key="top_level_treble_app"
--            android:order="-10"
--            android:title="@string/treble_app_settings_title"
--            android:summary="@string/treble_app_settings_summary">
--            <intent
--                android:targetPackage="me.phh.treble.app"
--                android:targetClass="me.phh.treble.app.TopLevelSettingsActivity"/>
--        </com.android.settings.widget.HomepagePreference>
--
-     </PreferenceCategory>
- 
- </PreferenceScreen>
 diff --git a/res/xml/top_level_settings_expressive.xml b/res/xml/top_level_settings_expressive.xml
-index f076e20aee0..f9aec50d89c 100644
+index 0f2f3664c4c..6c52f5c8dd7 100644
 --- a/res/xml/top_level_settings_expressive.xml
 +++ b/res/xml/top_level_settings_expressive.xml
 @@ -20,6 +20,22 @@
@@ -228,23 +210,6 @@ index f076e20aee0..f9aec50d89c 100644
      <com.android.settingslib.widget.UntitledPreferenceCategory
          android:order="-130"
          android:key="top_level_connectivity_category">
-@@ -298,16 +314,5 @@
-                 android:targetClass="lt.devsecops.androidnfc.ui.SettingsActivity"/>
-         </com.android.settings.widget.HomepagePreference>
- 
--        <com.android.settings.widget.HomepagePreference
--            android:icon="@drawable/ic_homepage_system_dashboard"
--            android:key="top_level_treble_app"
--            android:order="-10"
--            android:title="@string/treble_app_settings_title"
--            android:summary="@string/treble_app_settings_summary">
--            <intent
--                android:targetPackage="me.phh.treble.app"
--                android:targetClass="me.phh.treble.app.TopLevelSettingsActivity"/>
--        </com.android.settings.widget.HomepagePreference>
--
-     </com.android.settingslib.widget.UntitledPreferenceCategory>
- </PreferenceScreen>
 diff --git a/src/com/android/settings/connecteddevice/usb/UsbBackend.java b/src/com/android/settings/connecteddevice/usb/UsbBackend.java
 index b1df804d3b3..4091acb2e01 100644
 --- a/src/com/android/settings/connecteddevice/usb/UsbBackend.java
