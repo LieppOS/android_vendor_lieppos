@@ -16,7 +16,7 @@ index f8efeff825f..167aae709c8 100644
 --- a/res/values/strings.xml
 +++ b/res/values/strings.xml
 @@ -14961,4 +14961,6 @@
-     <string name="tinyscreen_settings_summary">Rear sub-screen display</string>
+     <string name="tinydisplay_settings_summary">Rear sub-screen display</string>
      <string name="nfc_cards_settings_title">NFC Cards</string>
      <string name="nfc_cards_settings_summary">Capture and clone NFC cards via ESP32 reader</string>
 +    <string name="treble_app_settings_title" translatable="false">TrebleDroid Settings</string>
@@ -56,11 +56,11 @@ index 61f6681f5ab..084393e7f27 100644
 @@ -268,7 +283,7 @@
          <com.android.settings.widget.HomepagePreference
              android:icon="@drawable/ic_settings_display_filled"
-             android:key="top_level_tinyscreen"
+             android:key="top_level_tinydisplay"
 -            android:order="-16"
 +            android:order="-30"
-             android:title="@string/tinyscreen_settings_title"
-             android:summary="@string/tinyscreen_settings_summary">
+             android:title="@string/tinydisplay_settings_title"
+             android:summary="@string/tinydisplay_settings_summary">
              <intent
 @@ -279,7 +294,7 @@
          <com.android.settings.widget.HomepagePreference
@@ -128,12 +128,12 @@ index 37980aef6b1..f076e20aee0 100644
              <intent
 @@ -264,7 +279,7 @@
          <com.android.settings.widget.HomepagePreference
-             android:icon="@drawable/ic_homepage_tinyscreen"
-             android:key="top_level_tinyscreen"
+             android:icon="@drawable/ic_homepage_tinydisplay"
+             android:key="top_level_tinydisplay"
 -            android:order="-16"
 +            android:order="-30"
-             android:title="@string/tinyscreen_settings_title"
-             android:summary="@string/tinyscreen_settings_summary">
+             android:title="@string/tinydisplay_settings_title"
+             android:summary="@string/tinydisplay_settings_summary">
              <intent
 @@ -275,7 +290,7 @@
          <com.android.settings.widget.HomepagePreference
@@ -172,7 +172,7 @@ index 3d3dc1d0c75..a96ced1a36b 100644
 --- a/src/com/android/settings/homepage/TopLevelSettings.java
 +++ b/src/com/android/settings/homepage/TopLevelSettings.java
 @@ -74,6 +74,8 @@ public class TopLevelSettings extends DashboardFragment implements SplitLayoutLi
-             "com.tinyscreen", "com.tinyscreen.TinyScreenSettingsActivity");
+             "com.tinydisplay", "com.tinydisplay.TinyDisplaySettingsActivity");
      private static final ComponentName NFC_CARDS_SETTINGS = new ComponentName(
              "lt.devsecops.androidnfc", "lt.devsecops.androidnfc.ui.SettingsActivity");
 +    private static final ComponentName TREBLE_APP_SETTINGS = new ComponentName(
@@ -183,7 +183,7 @@ index 3d3dc1d0c75..a96ced1a36b 100644
 @@ -332,7 +334,8 @@ public class TopLevelSettings extends DashboardFragment implements SplitLayoutLi
              final ComponentName component = tile.getIntent().getComponent();
              if (SEKLYSMORKA_SETTINGS.equals(component)
-                     || TINYSCREEN_SETTINGS.equals(component)
+                     || TINYDISPLAY_SETTINGS.equals(component)
 -                    || NFC_CARDS_SETTINGS.equals(component)) {
 +                    || NFC_CARDS_SETTINGS.equals(component)
 +                    || TREBLE_APP_SETTINGS.equals(component)) {

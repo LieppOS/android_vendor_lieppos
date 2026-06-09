@@ -7,10 +7,10 @@ Change-Id: I291e0b7229897d07938f0bdb8eed0e879e6593c3
 ---
  res/drawable/ic_homepage_nfc_cards.xml        | 18 ++++++++++
  res/drawable/ic_homepage_seklysmorka.xml      | 18 ++++++++++
- res/drawable/ic_homepage_tinyscreen.xml       | 18 ++++++++++
+ res/drawable/ic_homepage_tinydisplay.xml       | 18 ++++++++++
  res/drawable/ic_nfc_cards_expressive.xml      |  6 ++++
  res/drawable/ic_sms_expressive.xml            |  6 ++++
- res/drawable/ic_tinyscreen_expressive.xml     |  6 ++++
+ res/drawable/ic_tinydisplay_expressive.xml     |  6 ++++
  res/values/strings.xml                        |  8 +++++
  res/xml/top_level_settings.xml                | 35 ++++++++++++++++++-
  res/xml/top_level_settings_expressive.xml     | 34 +++++++++++++++++-
@@ -18,10 +18,10 @@ Change-Id: I291e0b7229897d07938f0bdb8eed0e879e6593c3
  10 files changed, 167 insertions(+), 2 deletions(-)
  create mode 100644 res/drawable/ic_homepage_nfc_cards.xml
  create mode 100644 res/drawable/ic_homepage_seklysmorka.xml
- create mode 100644 res/drawable/ic_homepage_tinyscreen.xml
+ create mode 100644 res/drawable/ic_homepage_tinydisplay.xml
  create mode 100644 res/drawable/ic_nfc_cards_expressive.xml
  create mode 100644 res/drawable/ic_sms_expressive.xml
- create mode 100644 res/drawable/ic_tinyscreen_expressive.xml
+ create mode 100644 res/drawable/ic_tinydisplay_expressive.xml
 
 diff --git a/res/drawable/ic_homepage_nfc_cards.xml b/res/drawable/ic_homepage_nfc_cards.xml
 new file mode 100644
@@ -71,11 +71,11 @@ index 00000000000..5a9d75eb795
 +        android:top="@dimen/dashboard_tile_foreground_image_inset"
 +        android:drawable="@drawable/ic_sms_expressive" />
 +</layer-list>
-diff --git a/res/drawable/ic_homepage_tinyscreen.xml b/res/drawable/ic_homepage_tinyscreen.xml
+diff --git a/res/drawable/ic_homepage_tinydisplay.xml b/res/drawable/ic_homepage_tinydisplay.xml
 new file mode 100644
 index 00000000000..bddde8d0629
 --- /dev/null
-+++ b/res/drawable/ic_homepage_tinyscreen.xml
++++ b/res/drawable/ic_homepage_tinydisplay.xml
 @@ -0,0 +1,18 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!-- Copyright (C) 2026 The Android Open Source Project -->
@@ -93,7 +93,7 @@ index 00000000000..bddde8d0629
 +        android:height="@dimen/dashboard_tile_foreground_image_size"
 +        android:start="@dimen/dashboard_tile_foreground_image_inset"
 +        android:top="@dimen/dashboard_tile_foreground_image_inset"
-+        android:drawable="@drawable/ic_tinyscreen_expressive" />
++        android:drawable="@drawable/ic_tinydisplay_expressive" />
 +</layer-list>
 diff --git a/res/drawable/ic_nfc_cards_expressive.xml b/res/drawable/ic_nfc_cards_expressive.xml
 new file mode 100644
@@ -119,11 +119,11 @@ index 00000000000..f0f1009107f
 +    xmlns:android="http://schemas.android.com/apk/res/android"
 +    android:drawable="@drawable/ic_sms"
 +    android:tint="@color/homepage_support_foreground" />
-diff --git a/res/drawable/ic_tinyscreen_expressive.xml b/res/drawable/ic_tinyscreen_expressive.xml
+diff --git a/res/drawable/ic_tinydisplay_expressive.xml b/res/drawable/ic_tinydisplay_expressive.xml
 new file mode 100644
 index 00000000000..33fd72abaf0
 --- /dev/null
-+++ b/res/drawable/ic_tinyscreen_expressive.xml
++++ b/res/drawable/ic_tinydisplay_expressive.xml
 @@ -0,0 +1,6 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!-- Copyright (C) 2026 The Android Open Source Project -->
@@ -143,8 +143,8 @@ index e2c057eb9b7..f8efeff825f 100644
 +    <!-- LieppOS top-level settings entries. -->
 +    <string name="seklysmorka_settings_title" translatable="false">SeklysMorka</string>
 +    <string name="seklysmorka_settings_summary">SMS remote control - locate, ring, lock, wipe</string>
-+    <string name="tinyscreen_settings_title" translatable="false">TinyScreen</string>
-+    <string name="tinyscreen_settings_summary">Rear sub-screen display</string>
++    <string name="tinydisplay_settings_title" translatable="false">TinyDisplay</string>
++    <string name="tinydisplay_settings_summary">Rear sub-screen display</string>
 +    <string name="nfc_cards_settings_title">NFC Cards</string>
 +    <string name="nfc_cards_settings_summary">Capture and clone NFC cards via ESP32 reader</string>
  </resources>
@@ -169,13 +169,13 @@ index 975a97a3aa4..61f6681f5ab 100644
 +
 +        <com.android.settings.widget.HomepagePreference
 +            android:icon="@drawable/ic_settings_display_filled"
-+            android:key="top_level_tinyscreen"
++            android:key="top_level_tinydisplay"
 +            android:order="-16"
-+            android:title="@string/tinyscreen_settings_title"
-+            android:summary="@string/tinyscreen_settings_summary">
++            android:title="@string/tinydisplay_settings_title"
++            android:summary="@string/tinydisplay_settings_summary">
 +            <intent
-+                android:targetPackage="com.tinyscreen"
-+                android:targetClass="com.tinyscreen.TinyScreenSettingsActivity"/>
++                android:targetPackage="com.tinydisplay"
++                android:targetClass="com.tinydisplay.TinyDisplaySettingsActivity"/>
 +        </com.android.settings.widget.HomepagePreference>
 +
 +        <com.android.settings.widget.HomepagePreference
@@ -219,14 +219,14 @@ index 73e1a82303c..37980aef6b1 100644
 +        </com.android.settings.widget.HomepagePreference>
 +
 +        <com.android.settings.widget.HomepagePreference
-+            android:icon="@drawable/ic_homepage_tinyscreen"
-+            android:key="top_level_tinyscreen"
++            android:icon="@drawable/ic_homepage_tinydisplay"
++            android:key="top_level_tinydisplay"
 +            android:order="-16"
-+            android:title="@string/tinyscreen_settings_title"
-+            android:summary="@string/tinyscreen_settings_summary">
++            android:title="@string/tinydisplay_settings_title"
++            android:summary="@string/tinydisplay_settings_summary">
 +            <intent
-+                android:targetPackage="com.tinyscreen"
-+                android:targetClass="com.tinyscreen.TinyScreenSettingsActivity"/>
++                android:targetPackage="com.tinydisplay"
++                android:targetClass="com.tinydisplay.TinyDisplaySettingsActivity"/>
 +        </com.android.settings.widget.HomepagePreference>
 +
 +        <com.android.settings.widget.HomepagePreference
@@ -266,8 +266,8 @@ index fedc05e9fef..3d3dc1d0c75 100644
      private static final String PREF_KEY_SUPPORT = "top_level_support";
 +    private static final ComponentName SEKLYSMORKA_SETTINGS = new ComponentName(
 +            "com.seklysmorka.remote", "com.seklysmorka.remote.ui.SettingsActivity");
-+    private static final ComponentName TINYSCREEN_SETTINGS = new ComponentName(
-+            "com.tinyscreen", "com.tinyscreen.TinyScreenSettingsActivity");
++    private static final ComponentName TINYDISPLAY_SETTINGS = new ComponentName(
++            "com.tinydisplay", "com.tinydisplay.TinyDisplaySettingsActivity");
 +    private static final ComponentName NFC_CARDS_SETTINGS = new ComponentName(
 +            "lt.devsecops.androidnfc", "lt.devsecops.androidnfc.ui.SettingsActivity");
  
@@ -282,7 +282,7 @@ index fedc05e9fef..3d3dc1d0c75 100644
 +        if (tile != null && tile.getIntent() != null) {
 +            final ComponentName component = tile.getIntent().getComponent();
 +            if (SEKLYSMORKA_SETTINGS.equals(component)
-+                    || TINYSCREEN_SETTINGS.equals(component)
++                    || TINYDISPLAY_SETTINGS.equals(component)
 +                    || NFC_CARDS_SETTINGS.equals(component)) {
 +                return false;
 +            }

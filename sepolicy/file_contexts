@@ -2,3 +2,5 @@
 /system_ext/bin/hw/vendor\.lineage\.health-service\.default     u:object_r:hal_lineage_health_default_exec:s0
 /system/system_ext/bin/hw/vendor\.lineage\.health-service\.default     u:object_r:hal_lineage_health_default_exec:s0
 /system/bin/lieppos-microg-location-defaults\.sh                u:object_r:lieppos_microg_exec:s0
+/system_ext/bin/tinydisplay_touch_daemon                         u:object_r:tinydisplay_touch_daemon_exec:s0
+/system/system_ext/bin/tinydisplay_touch_daemon                  u:object_r:tinydisplay_touch_daemon_exec:s0

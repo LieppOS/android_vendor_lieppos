@@ -1,0 +1,27 @@
+# Native daemon fallback: app zygote still gets EACCES on /dev/input on this
+# build, so an init-started daemon outside the app sandbox grabs hyn_ts and
+# forwards gestures through cmd activity.
+type tinydisplay_touch_daemon, domain;
+type tinydisplay_touch_daemon_exec, system_file_type, exec_type, file_type;
+init_daemon_domain(tinydisplay_touch_daemon)
+allow tinydisplay_touch_daemon input_device:dir r_dir_perms;
+allow tinydisplay_touch_daemon input_device:chr_file r_file_perms;
+allow tinydisplay_touch_daemon system_file:file rx_file_perms;
+allow tinydisplay_touch_daemon shell_exec:file rx_file_perms;
+allow tinydisplay_touch_daemon activity_service:service_manager find;
+# ActivityManager/cmd returns status through stdout/stderr pipes inherited from
+# the daemon; system_server must be allowed to use those pipe fds.
+allow system_server tinydisplay_touch_daemon:fd use;
+binder_use(tinydisplay_touch_daemon)
+binder_call(tinydisplay_touch_daemon, system_server)
+# cmd/activity also triggers a reverse binder interaction from system_server
+# toward the caller domain; without this cmd hangs/fails with Failed transaction.
+binder_call(system_server, tinydisplay_touch_daemon)
+# Keep the app helper allowance too; harmless if it remains blocked by app sandboxing.
+allow system_app input_device:chr_file r_file_perms;
+# Live drag: the daemon streams raw touch coordinates to the app over an
+# abstract UNIX socket so the next page can follow the finger. It must be able
+# to create its own client socket and connect to the app's listening socket.
+allow tinydisplay_touch_daemon self:unix_stream_socket create_socket_perms;
+allow tinydisplay_touch_daemon platform_app:unix_stream_socket connectto;
+allow tinydisplay_touch_daemon system_app:unix_stream_socket connectto;

@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<permissions>
-    <privapp-permissions package="com.tinyscreen">
-        <permission name="android.permission.RECEIVE_BOOT_COMPLETED" />
-        <permission name="android.permission.FOREGROUND_SERVICE" />
-        <permission name="android.permission.SYSTEM_ALERT_WINDOW" />
-    </privapp-permissions>
-</permissions>

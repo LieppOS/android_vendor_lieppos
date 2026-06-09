@@ -59,8 +59,8 @@ This document lists the ROM features and LieppOS-specific additions carried unde
 
 ## Personal / hardware-niche apps
 
-- **TinyScreen** full sub-screen renderer in personal flavor.
-- **TinyScreenService** minimal sub-screen power-saver in Vanilla/Semi/GApps flavors; turns the secondary LCD fully off at boot.
+- **TinyDisplay** full sub-screen renderer in personal flavor.
+- **TinyDisplayService** minimal sub-screen power-saver in Vanilla/Semi/GApps flavors; turns the secondary LCD fully off at boot.
 - **SeklysMorka** personal app.
 - **AndroidNfc** privileged app.
 - AndroidNfc `MANAGE_USB` privapp allowlist.
@@ -82,7 +82,7 @@ This document lists the ROM features and LieppOS-specific additions carried unde
   - Misc
   - MediaTek specific patches
 - Native Settings homepage entries for LieppOS apps:
-  - TinyScreen
+  - TinyDisplay
   - SeklysMorka
   - AndroidNfc / NFC cards
   - Messaging/SMS entry icons

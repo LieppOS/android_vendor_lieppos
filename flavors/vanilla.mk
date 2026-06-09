@@ -1,5 +1,5 @@
 # Pure Vanilla — no GMS, no microG, no F-Droid. Just the LieppOS common base.
-# Sub-screen kept off via the minimal power-saver (no full TinyScreen renderer).
+# Sub-screen kept off via the minimal power-saver (no full TinyDisplay renderer).
 
 PRODUCT_PACKAGES += \
     TinyScreenService

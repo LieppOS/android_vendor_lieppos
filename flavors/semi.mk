@@ -10,7 +10,7 @@ PRODUCT_PACKAGES += \
     FDroidPrivilegedExtension \
     additional_repos.xml
 
-# Sub-screen power-saver (no full TinyScreen renderer)
+# Sub-screen power-saver (no full TinyDisplay renderer)
 PRODUCT_PACKAGES += \
     TinyScreenService
 

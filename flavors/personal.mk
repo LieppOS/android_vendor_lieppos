@@ -5,7 +5,9 @@ $(call inherit-product, vendor/lieppos/flavors/microg-common.mk)
 
 # Personal apps (kept OUT of user builds)
 PRODUCT_PACKAGES += \
-    TinyScreen \
+    TinyDisplay \
+    TinyDisplayTouchHelper \
+    TinyDisplayTouchDaemon \
     SeklysMorka \
     AndroidNfc
 

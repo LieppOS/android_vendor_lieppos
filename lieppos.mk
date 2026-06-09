@@ -8,7 +8,7 @@
 #   gapps.mk    -> lineage_arm64_bvNE_gapps   (MindTheGapps)
 #
 # Anything here ships in ALL builds. Keep personal/hardware-niche apps
-# (SeklysMorka, AndroidNfc, AndroidAuto, the full TinyScreen renderer) OUT of
+# (SeklysMorka, AndroidNfc, AndroidAuto, the full TinyDisplay renderer) OUT of
 # this file — put them in flavors/personal.mk.
 
 # LieppOS sepolicy (system_ext-side, hosts the lineage health HAL on GSI)
@@ -70,22 +70,40 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PRODUCT_PROPERTIES += \
     ro.lieppos.adb_root_supported=true
 
-# Armor 29 Pro / MTK Treble compatibility defaults. These mirror the PHH/Treble
-# App patches but ship enabled for this phone so they are active before the user
-# opens LieppOS Settings -> System -> Patches.
+# Armor 29 Pro / MTK Treble compatibility defaults.
+#
+# As of LieppOS 1.1 every phone-specific patch ships DISABLED by default. The
+# user enables what their device actually needs from LieppOS Settings ->
+# Phone specific patches -> <device>. Keeping these here (set to off values)
+# rather than omitting them pins the install-time state explicitly so a
+# previous build's persist values don't leak through.
 PRODUCT_PRODUCT_PROPERTIES += \
-    persist.sys.overlay.devinputjack=true \
-    persist.sys.phh.disable_audio_effects=1 \
-    persist.sys.phh.mtk_ged_kpi=1 \
-    persist.bluetooth.system_audio_hal.enabled=true \
-    persist.sys.phh.allow_binder_thread_on_incoming_calls=1 \
-    persist.sys.phh.disable_voice_call_in=true \
-    persist.sys.phh.patch_smsc=true \
-    persist.sys.phh.virtual_sensors_are_real=1 \
+    persist.lieppos.device_patches=none \
+    persist.sys.overlay.devinputjack=false \
+    persist.sys.phh.disable_audio_effects=0 \
+    persist.sys.phh.mtk_ged_kpi=0 \
+    persist.bluetooth.system_audio_hal.enabled=false \
+    persist.sys.phh.allow_binder_thread_on_incoming_calls=0 \
+    persist.sys.phh.disable_voice_call_in=false \
+    persist.sys.phh.patch_smsc=false \
+    persist.sys.phh.virtual_sensors_are_real=0 \
     persist.dbg.volte_avail_ovr=0 \
     persist.dbg.vt_avail_ovr=0 \
     persist.dbg.wfc_avail_ovr=0 \
     persist.dbg.allow_ims_off=0
+
+# Armor 29 Thermal Pro hardware-feature gates. All disabled at install; the
+# user opts in from LieppOS Settings -> Phone specific patches -> Ulefone
+# Armor 29 Thermal Pro -> Hardware features.
+PRODUCT_PRODUCT_PROPERTIES += \
+    persist.lieppos.armor29.thermal_cam=false \
+    persist.lieppos.armor29.sub_screen=false \
+    persist.lieppos.armor29.camp_lights=false \
+    persist.lieppos.armor29.super_flashlight=false \
+    persist.lieppos.armor29.fm_radio=false \
+    persist.lieppos.armor29.charging_control=false \
+    persist.lieppos.armor29.touchscreen_grabber=false \
+    persist.lieppos.armor29.nfc_routing_watchdog=false
 
 # IMS / 4G calling feature gates are present but intentionally OFF by default.
 # Users can enable the matching controls from LieppOS Settings -> System ->
