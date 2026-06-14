@@ -1,0 +1,253 @@
+From 251151231a7e76d3f02921499231467776d13583 Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Wed, 10 Jun 2026 03:45:35 +0300
+Subject: [PATCH] SystemUI: add Extreme Power saving QS tile
+
+Expose a native extreme_power_saving QS tile for LieppOS. The tile observes the LieppOS secure master flag and sends a protected explicit broadcast to the LieppOS app, so the existing app-side snapshot/apply/restore controller remains the single source of behavior.
+
+Change-Id: I5fdf773dd06320ce410c0c7d1292750861fe2e78
+---
+ packages/SystemUI/res/values/config.xml       |   2 +-
+ packages/SystemUI/res/values/strings.xml      |   6 +
+ .../qs/tiles/ExtremePowerSavingTile.java      | 151 ++++++++++++++++++
+ .../systemui/statusbar/policy/PolicyModule.kt |  22 +++
+ 4 files changed, 180 insertions(+), 1 deletion(-)
+ create mode 100644 packages/SystemUI/src/com/android/systemui/qs/tiles/ExtremePowerSavingTile.java
+
+diff --git a/packages/SystemUI/res/values/config.xml b/packages/SystemUI/res/values/config.xml
+index 6931c00bd148..5e46ea5fc564 100644
+--- a/packages/SystemUI/res/values/config.xml
++++ b/packages/SystemUI/res/values/config.xml
+@@ -120,7 +120,7 @@
+ 
+     <!-- Tiles native to System UI. Order should match "quick_settings_tiles_default" -->
+     <string name="quick_settings_tiles_stock" translatable="false">
+-        internet,wifi,cell,bt,flashlight,superflashlight,redlight,bluelight,adb_debugging,adb_root,gps_refresh,usb_mode,screen_timeout,smart_pixels,split,dnd,modes_dnd,alarm,airplane,nfc,controls,wallet,rotation,battery,cast,screenrecord,mictoggle,cameratoggle,location,hotspot,inversion,saver,dark,work,night,reverse,reduce_brightness,qr_code_scanner,onehanded,color_correction,dream,font_scaling,record_issue,hearing_devices,notes,desktopeffects,ambient_display,aod,caffeine,heads_up,powershare,profiles,reading_mode,sync,usb_tether,vpn
++        internet,wifi,cell,bt,flashlight,superflashlight,redlight,bluelight,adb_debugging,adb_root,gps_refresh,usb_mode,screen_timeout,smart_pixels,extreme_power_saving,split,dnd,modes_dnd,alarm,airplane,nfc,controls,wallet,rotation,battery,cast,screenrecord,mictoggle,cameratoggle,location,hotspot,inversion,saver,dark,work,night,reverse,reduce_brightness,qr_code_scanner,onehanded,color_correction,dream,font_scaling,record_issue,hearing_devices,notes,desktopeffects,ambient_display,aod,caffeine,heads_up,powershare,profiles,reading_mode,sync,usb_tether,vpn
+     </string>
+ 
+     <!-- The tiles to display in QuickSettings -->
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index 10ecb33c3a6b..470c31964059 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -1070,6 +1070,12 @@
+     <string name="quick_settings_smart_pixels_on">On</string>
+     <string name="quick_settings_smart_pixels_off">Off</string>
+ 
++    <!-- QuickSettings: Extreme Power saving [CHAR LIMIT=NONE] -->
++    <string name="quick_settings_extreme_power_saving_label">Extreme Saver</string>
++    <!-- QuickSettings: Extreme Power saving secondary labels [CHAR LIMIT=NONE] -->
++    <string name="quick_settings_extreme_power_saving_on">On</string>
++    <string name="quick_settings_extreme_power_saving_off">Off</string>
++
+     <!-- QuickSettings: adb debugging [CHAR LIMIT=NONE] -->
+     <string name="quick_settings_adb_debugging_label">ADB debugging</string>
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/ExtremePowerSavingTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/ExtremePowerSavingTile.java
+new file mode 100644
+index 000000000000..1c817c51dfb0
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/ExtremePowerSavingTile.java
+@@ -0,0 +1,151 @@
++package com.android.systemui.qs.tiles;
++
++import android.content.ComponentName;
++import android.content.Intent;
++import android.database.ContentObserver;
++import android.os.Handler;
++import android.os.Looper;
++import android.os.UserHandle;
++import android.provider.Settings;
++import android.service.quicksettings.Tile;
++import android.widget.Switch;
++
++import androidx.annotation.Nullable;
++
++import com.android.internal.logging.MetricsLogger;
++import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
++import com.android.systemui.animation.Expandable;
++import com.android.systemui.dagger.qualifiers.Background;
++import com.android.systemui.dagger.qualifiers.Main;
++import com.android.systemui.plugins.ActivityStarter;
++import com.android.systemui.plugins.FalsingManager;
++import com.android.systemui.plugins.qs.QSTile.BooleanState;
++import com.android.systemui.plugins.statusbar.StatusBarStateController;
++import com.android.systemui.qs.QSHost;
++import com.android.systemui.qs.QsEventLogger;
++import com.android.systemui.qs.logging.QSLogger;
++import com.android.systemui.qs.tileimpl.QSTileImpl;
++import com.android.systemui.res.R;
++
++import javax.inject.Inject;
++
++/** QS tile that toggles LieppOS Extreme Power saving mode. */
++public class ExtremePowerSavingTile extends QSTileImpl<BooleanState> {
++    public static final String TILE_SPEC = "extreme_power_saving";
++
++    private static final String KEY_ENABLED = "lieppos_eps_enabled";
++
++    private static final String LIEPPOS_PACKAGE = "com.lieppos.settings";
++    private static final String LIEPPOS_SETTINGS_ACTION = "com.lieppos.settings.LIEPPOS_SETTINGS";
++    private static final String CONTROL_RECEIVER =
++            "com.lieppos.settings.ExtremePowerSavingControlReceiver";
++    private static final String ACTION_APPLY =
++            "com.lieppos.settings.action.APPLY_EXTREME_POWER_SAVING";
++    private static final String ACTION_RESTORE =
++            "com.lieppos.settings.action.RESTORE_EXTREME_POWER_SAVING";
++    private static final String EXTREME_FRAGMENT =
++            "com.lieppos.settings.fragments.ExtremePowerSavingSettings";
++    private static final String EXTRA_SHOW_FRAGMENT = ":settings:show_fragment";
++    private static final String EXTRA_SHOW_FRAGMENT_TITLE = ":settings:show_fragment_title";
++
++    private final ContentObserver mObserver;
++
++    @Inject
++    public ExtremePowerSavingTile(
++            QSHost host,
++            QsEventLogger uiEventLogger,
++            @Background Looper backgroundLooper,
++            @Main Handler mainHandler,
++            FalsingManager falsingManager,
++            MetricsLogger metricsLogger,
++            StatusBarStateController statusBarStateController,
++            ActivityStarter activityStarter,
++            QSLogger qsLogger) {
++        super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager,
++                metricsLogger, statusBarStateController, activityStarter, qsLogger);
++        mObserver = new ContentObserver(mainHandler) {
++            @Override
++            public void onChange(boolean selfChange) {
++                refreshState();
++            }
++        };
++    }
++
++    @Override
++    public CharSequence getTileLabel() {
++        return mContext.getString(R.string.quick_settings_extreme_power_saving_label);
++    }
++
++    @Override
++    public Intent getLongClickIntent() {
++        Intent intent = new Intent(LIEPPOS_SETTINGS_ACTION);
++        intent.setPackage(LIEPPOS_PACKAGE);
++        intent.putExtra(EXTRA_SHOW_FRAGMENT, EXTREME_FRAGMENT);
++        intent.putExtra(EXTRA_SHOW_FRAGMENT_TITLE,
++                mContext.getString(R.string.quick_settings_extreme_power_saving_label));
++        return intent;
++    }
++
++    @Override
++    protected void handleClick(@Nullable Expandable expandable) {
++        final boolean enabled = isEnabled();
++        sendControlBroadcast(enabled ? ACTION_RESTORE : ACTION_APPLY);
++        refreshState(!enabled);
++    }
++
++    @Override
++    protected void handleSetListening(boolean listening) {
++        super.handleSetListening(listening);
++        if (listening) {
++            mContext.getContentResolver().registerContentObserver(
++                    Settings.Secure.getUriFor(KEY_ENABLED), false, mObserver,
++                    UserHandle.USER_ALL);
++        } else {
++            mContext.getContentResolver().unregisterContentObserver(mObserver);
++        }
++    }
++
++    @Override
++    protected void handleUpdateState(BooleanState state, Object arg) {
++        boolean enabled = arg instanceof Boolean ? (Boolean) arg : isEnabled();
++        state.value = enabled;
++        state.label = getTileLabel();
++        state.secondaryLabel = mContext.getString(enabled
++                ? R.string.quick_settings_extreme_power_saving_on
++                : R.string.quick_settings_extreme_power_saving_off);
++        state.icon = maybeLoadResourceIcon(enabled
++                ? R.drawable.qs_battery_saver_icon_on
++                : R.drawable.qs_battery_saver_icon_off);
++        state.state = enabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
++        state.contentDescription = state.label;
++        state.expandedAccessibilityClassName = Switch.class.getName();
++    }
++
++    @Override
++    public BooleanState newTileState() {
++        BooleanState state = new BooleanState();
++        state.handlesLongClick = true;
++        return state;
++    }
++
++    @Override
++    public boolean isAvailable() {
++        return true;
++    }
++
++    @Override
++    public int getMetricsCategory() {
++        return MetricsEvent.QS_PANEL;
++    }
++
++    private boolean isEnabled() {
++        return Settings.Secure.getIntForUser(mContext.getContentResolver(), KEY_ENABLED,
++                0, UserHandle.USER_CURRENT) == 1;
++    }
++
++    private void sendControlBroadcast(String action) {
++        Intent intent = new Intent(action);
++        intent.setComponent(new ComponentName(LIEPPOS_PACKAGE, CONTROL_RECEIVER));
++        mContext.sendBroadcastAsUser(intent, UserHandle.CURRENT);
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt b/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
+index 9ab0d3839c22..4ca267e9fe8b 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
+@@ -36,6 +36,7 @@ import com.android.systemui.qs.tiles.CameraToggleTile
+ import com.android.systemui.qs.tiles.BlueLightTile
+ import com.android.systemui.qs.tiles.FlashlightTile
+ import com.android.systemui.qs.tiles.FlashlightTileWithLevel
++import com.android.systemui.qs.tiles.ExtremePowerSavingTile
+ import com.android.systemui.qs.tiles.GpsRefreshTile
+ import com.android.systemui.qs.tiles.RedLightTile
+ import com.android.systemui.qs.tiles.SplitScreenTile
+@@ -646,6 +647,22 @@ interface PolicyModule {
+                 category = TileCategory.DISPLAY,
+             )
+ 
++        /** Edit-mode config for the LieppOS Extreme Power saving tile */
++        @Provides
++        @IntoMap
++        @StringKey(ExtremePowerSavingTile.TILE_SPEC)
++        fun provideExtremePowerSavingTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
++            QSTileConfig(
++                tileSpec = TileSpec.create(ExtremePowerSavingTile.TILE_SPEC),
++                uiConfig =
++                    QSTileUIConfig.Resource(
++                        iconRes = R.drawable.qs_battery_saver_icon_off,
++                        labelRes = R.string.quick_settings_extreme_power_saving_label,
++                    ),
++                instanceId = uiEventLogger.getNewInstanceId(),
++                category = TileCategory.LIEPPOS,
++            )
++
+         /** Edit-mode config for the LieppOS Screen Timeout tile */
+         @Provides
+         @IntoMap
+@@ -713,6 +730,11 @@ interface PolicyModule {
+     @StringKey(SmartPixelTile.TILE_SPEC)
+     fun bindSmartPixelTile(tile: SmartPixelTile): QSTileImpl<*>
+ 
++    @Binds
++    @IntoMap
++    @StringKey(ExtremePowerSavingTile.TILE_SPEC)
++    fun bindExtremePowerSavingTile(tile: ExtremePowerSavingTile): QSTileImpl<*>
++
+     /** Inject LocationTile into tileMap in QSModule */
+     @Binds
+     @IntoMap
+-- 
+2.54.0
+
