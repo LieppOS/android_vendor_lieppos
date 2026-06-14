@@ -1,0 +1,3 @@
+# LieppOS-owned properties. Prefix match: covers
+# persist.lieppos.device_patches and persist.lieppos.armor29.*.
+persist.lieppos.    u:object_r:lieppos_prop:s0

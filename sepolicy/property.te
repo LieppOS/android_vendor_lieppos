@@ -1,0 +1,9 @@
+# LieppOS device-patch / feature-gate properties (persist.lieppos.*).
+# Set by the LieppOS Settings app (android.uid.system -> system_app); read by
+# SystemUI (platform_app), NfcService (nfc), system_server and boot scripts.
+# Without this label the props fall back to default_prop and only work because
+# of the permissive GSI stance.
+system_restricted_prop(lieppos_prop)
+
+set_prop(system_app, lieppos_prop)
+get_prop(domain, lieppos_prop)
