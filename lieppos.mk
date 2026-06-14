@@ -95,6 +95,11 @@ PRODUCT_PRODUCT_PROPERTIES += \
 # Armor 29 Thermal Pro hardware-feature gates. All disabled at install; the
 # user opts in from LieppOS Settings -> Phone specific patches -> Ulefone
 # Armor 29 Thermal Pro -> Hardware features.
+# Consumers: camp_lights/super_flashlight -> SystemUI tile isAvailable()
+# (fb patch 0008); nfc_routing_watchdog -> NfcService 6s/60s watchdog (Nfc
+# 9001 patch); thermal_cam/sub_screen/fm_radio/touchscreen_grabber -> package
+# enable/disable via Armor29FeatureGates (LieppOS app); charging_control ->
+# Lineage Health off-switch. Props are labeled lieppos_prop (sepolicy/).
 PRODUCT_PRODUCT_PROPERTIES += \
     persist.lieppos.armor29.thermal_cam=false \
     persist.lieppos.armor29.sub_screen=false \

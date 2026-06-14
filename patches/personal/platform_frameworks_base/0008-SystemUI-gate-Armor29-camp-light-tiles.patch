@@ -1,0 +1,231 @@
+From 220a075320a54a50534a4333e36d754a8bcbade1 Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Fri, 12 Jun 2026 01:16:11 +0300
+Subject: [PATCH] SystemUI: gate Armor 29 camp-light tiles on
+ persist.lieppos.armor29 props
+
+RedLightTile/BlueLightTile gate on persist.lieppos.armor29.camp_lights,
+SuperFlashlightTile on persist.lieppos.armor29.super_flashlight: tiles
+report unavailable and ignore clicks until the gate is enabled in
+Settings -> LieppOS -> Phone specific patches -> Armor 29.
+
+Change-Id: Ib3451a35c1ec8c8adc7aea5cbe974acde31b1036
+---
+ .../systemui/qs/tiles/BlueLightTile.java      | 18 +++++++++++++++---
+ .../systemui/qs/tiles/RedLightTile.java       | 18 +++++++++++++++---
+ .../qs/tiles/SuperFlashlightTile.java         | 19 ++++++++++++++++---
+ 3 files changed, 46 insertions(+), 9 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/BlueLightTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/BlueLightTile.java
+index e89071129507..bec2dafab8b9 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/tiles/BlueLightTile.java
++++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/BlueLightTile.java
+@@ -4,6 +4,7 @@ import android.content.Context;
+ import android.content.Intent;
+ import android.os.Handler;
+ import android.os.Looper;
++import android.os.SystemProperties;
+ import android.service.quicksettings.Tile;
+ import android.widget.Switch;
+ 
+@@ -28,6 +29,9 @@ import javax.inject.Inject;
+ public class BlueLightTile extends QSTileImpl<BooleanState> {
+     public static final String TILE_SPEC = "bluelight";
+ 
++    // Armor 29 hardware-feature gate (Settings -> LieppOS -> Phone specific patches).
++    private static final String GATE_PROP = "persist.lieppos.armor29.camp_lights";
++
+     @Inject
+     public BlueLightTile(
+             QSHost host,
+@@ -43,7 +47,12 @@ public class BlueLightTile extends QSTileImpl<BooleanState> {
+     ) {
+         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager,
+                 metricsLogger, statusBarStateController, activityStarter, qsLogger);
+-        YftCampLightLeds.syncHardwareFromSetting(context);
++        if (isAvailable()) YftCampLightLeds.syncHardwareFromSetting(context);
++    }
++
++    @Override
++    public boolean isAvailable() {
++        return SystemProperties.getBoolean(GATE_PROP, false);
+     }
+ 
+     @Override
+@@ -56,12 +65,14 @@ public class BlueLightTile extends QSTileImpl<BooleanState> {
+ 
+     @Override
+     protected void handleLongClick(@Nullable Expandable expandable) {
++        if (!isAvailable()) return;
+         YftCampLightLeds.setBlueFlashy(mContext);
+         refreshState();
+     }
+ 
+     @Override
+     protected void handleClick(@Nullable Expandable expandable) {
++        if (!isAvailable()) return;
+         YftCampLightLeds.toggleBlue(mContext);
+         refreshState();
+     }
+@@ -73,11 +84,12 @@ public class BlueLightTile extends QSTileImpl<BooleanState> {
+ 
+     @Override
+     protected void handleUpdateState(BooleanState state, Object arg) {
+-        boolean on = YftCampLightLeds.isBlueOn(mContext);
++        boolean on = isAvailable() && YftCampLightLeds.isBlueOn(mContext);
+         state.value = on;
+         state.label = getTileLabel();
+         state.icon = maybeLoadResourceIcon(R.drawable.qs_blue_light_icon);
+-        state.state = on ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
++        state.state = !isAvailable() ? Tile.STATE_UNAVAILABLE
++                : on ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
+         state.secondaryLabel = YftCampLightLeds.isBlueFlashy(mContext) ? "Flashy" : null;
+         state.contentDescription = state.label;
+         state.expandedAccessibilityClassName = Switch.class.getName();
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/RedLightTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/RedLightTile.java
+index 94ea1d5d805c..d5c01a7fd5b0 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/tiles/RedLightTile.java
++++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/RedLightTile.java
+@@ -4,6 +4,7 @@ import android.content.Context;
+ import android.content.Intent;
+ import android.os.Handler;
+ import android.os.Looper;
++import android.os.SystemProperties;
+ import android.service.quicksettings.Tile;
+ import android.widget.Switch;
+ 
+@@ -28,6 +29,9 @@ import javax.inject.Inject;
+ public class RedLightTile extends QSTileImpl<BooleanState> {
+     public static final String TILE_SPEC = "redlight";
+ 
++    // Armor 29 hardware-feature gate (Settings -> LieppOS -> Phone specific patches).
++    private static final String GATE_PROP = "persist.lieppos.armor29.camp_lights";
++
+     @Inject
+     public RedLightTile(
+             QSHost host,
+@@ -43,7 +47,12 @@ public class RedLightTile extends QSTileImpl<BooleanState> {
+     ) {
+         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager,
+                 metricsLogger, statusBarStateController, activityStarter, qsLogger);
+-        YftCampLightLeds.syncHardwareFromSetting(context);
++        if (isAvailable()) YftCampLightLeds.syncHardwareFromSetting(context);
++    }
++
++    @Override
++    public boolean isAvailable() {
++        return SystemProperties.getBoolean(GATE_PROP, false);
+     }
+ 
+     @Override
+@@ -56,12 +65,14 @@ public class RedLightTile extends QSTileImpl<BooleanState> {
+ 
+     @Override
+     protected void handleLongClick(@Nullable Expandable expandable) {
++        if (!isAvailable()) return;
+         YftCampLightLeds.setRedFlashy(mContext);
+         refreshState();
+     }
+ 
+     @Override
+     protected void handleClick(@Nullable Expandable expandable) {
++        if (!isAvailable()) return;
+         YftCampLightLeds.toggleRed(mContext);
+         refreshState();
+     }
+@@ -73,11 +84,12 @@ public class RedLightTile extends QSTileImpl<BooleanState> {
+ 
+     @Override
+     protected void handleUpdateState(BooleanState state, Object arg) {
+-        boolean on = YftCampLightLeds.isRedOn(mContext);
++        boolean on = isAvailable() && YftCampLightLeds.isRedOn(mContext);
+         state.value = on;
+         state.label = getTileLabel();
+         state.icon = maybeLoadResourceIcon(R.drawable.qs_red_light_icon);
+-        state.state = on ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
++        state.state = !isAvailable() ? Tile.STATE_UNAVAILABLE
++                : on ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
+         state.secondaryLabel = YftCampLightLeds.isRedFlashy(mContext) ? "Flashy" : null;
+         state.contentDescription = state.label;
+         state.expandedAccessibilityClassName = Switch.class.getName();
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/SuperFlashlightTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/SuperFlashlightTile.java
+index 845ce8b7a588..3617572bd74c 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/tiles/SuperFlashlightTile.java
++++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/SuperFlashlightTile.java
+@@ -4,6 +4,7 @@ import android.content.Context;
+ import android.content.Intent;
+ import android.os.Handler;
+ import android.os.Looper;
++import android.os.SystemProperties;
+ import android.service.quicksettings.Tile;
+ import android.util.Log;
+ import android.widget.Switch;
+@@ -34,6 +35,9 @@ public class SuperFlashlightTile extends QSTileImpl<BooleanState> {
+     public static final String TILE_SPEC = "superflashlight";
+     private static final String TAG = "SuperFlashlightTile";
+ 
++    // Armor 29 hardware-feature gate (Settings -> LieppOS -> Phone specific patches).
++    private static final String GATE_PROP = "persist.lieppos.armor29.super_flashlight";
++
+     private static final String MODE =
+             "/sys/devices/platform/yft_camplight/camplight_mode";
+     private static final String BRIGHT =
+@@ -101,13 +105,18 @@ public class SuperFlashlightTile extends QSTileImpl<BooleanState> {
+         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager,
+                 metricsLogger, statusBarStateController, activityStarter, qsLogger);
+         mMainHandler = mainHandler;
+-        int b = readSysfsInt(BRIGHT);
++        int b = isAvailable() ? readSysfsInt(BRIGHT) : 0;
+         if (b != 0) {
+             mSteadyOn = true;
+             mLevelIndex = 0;
+         }
+     }
+ 
++    @Override
++    public boolean isAvailable() {
++        return SystemProperties.getBoolean(GATE_PROP, false);
++    }
++
+     @Override
+     public CharSequence getTileLabel() {
+         return mContext.getString(R.string.quick_settings_super_flashlight_label);
+@@ -123,6 +132,7 @@ public class SuperFlashlightTile extends QSTileImpl<BooleanState> {
+ 
+     @Override
+     protected void handleClick(@Nullable Expandable expandable) {
++        if (!isAvailable()) return;
+         if (mSosRunning) {
+             stopSos(true);
+             refreshSoon();
+@@ -146,22 +156,25 @@ public class SuperFlashlightTile extends QSTileImpl<BooleanState> {
+     }
+ 
+     protected void handleSecondaryClick(@Nullable Expandable expandable) {
++        if (!isAvailable()) return;
+         startSos();
+         refreshSoon();
+     }
+ 
+     protected void handleLongClick(@Nullable Expandable expandable) {
++        if (!isAvailable()) return;
+         startSos();
+         refreshSoon();
+     }
+ 
+     @Override
+     protected void handleUpdateState(BooleanState state, Object arg) {
+-        boolean active = mSosRunning || mSteadyOn;
++        boolean active = isAvailable() && (mSosRunning || mSteadyOn);
+         state.value = active;
+         state.label = getTileLabel();
+         state.icon = maybeLoadResourceIcon(R.drawable.qs_super_flashlight_icon);
+-        state.state = active ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
++        state.state = !isAvailable() ? Tile.STATE_UNAVAILABLE
++                : active ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
+         state.contentDescription = state.label;
+         state.expandedAccessibilityClassName = Switch.class.getName();
+         try {
+-- 
+2.54.0
+
