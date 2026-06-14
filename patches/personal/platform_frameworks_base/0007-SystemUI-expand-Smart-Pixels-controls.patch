@@ -1,0 +1,453 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Wed, 10 Jun 2026 00:00:00 +0300
+Subject: [PATCH] SystemUI: expand Smart Pixels controls
+
+Port the extra SmartPiXelsPosed controls into the native LieppOS/SystemUI
+Smart Pixels implementation: transparent-pixel dim amount, system-bars alpha,
+and burn-in-protection pattern shifting. The system-bars alpha control uses a
+trusted overlay over status/navigation-bar insets so it remains visible across
+Android 16 status-bar implementations.
+
+---
+diff --git a/core/java/android/provider/Settings.java b/core/java/android/provider/Settings.java
+--- a/core/java/android/provider/Settings.java
++++ b/core/java/android/provider/Settings.java
+@@ -11778,6 +11778,26 @@
+         public static final String SMART_PIXEL_FILTER_PERCENT =
+                 "smart_pixel_filter_percent";
+ 
++        /**
++         * Smart Pixels dim amount for pixels that are not fully disabled.
++         * @hide
++         */
++        public static final String SMART_PIXEL_FILTER_DIM_PERCENT =
++                "smart_pixel_filter_dim_percent";
++
++        /**
++         * Smart Pixels alpha/dim reduction applied to system bars.
++         * @hide
++         */
++        public static final String SMART_PIXEL_SYSTEM_BARS_ALPHA =
++                "smart_pixel_system_bars_alpha";
++
++        /**
++         * Smart Pixels burn-in protection shift interval index.
++         * @hide
++         */
++        public static final String SMART_PIXEL_BURN_IN_TIMEOUT =
++                "smart_pixel_burn_in_timeout";
+ 
+         /**
+          * The current assistant component. It could be a voice interaction service,
+diff --git a/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelManager.java b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelManager.java
+--- a/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelManager.java
++++ b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelManager.java
+@@ -26,9 +26,12 @@
+     private final Context mContext;
+     private final WindowManager mWindowManager;
+     private final ContentResolver mResolver;
++    private final Handler mMainHandler;
+     private final ContentObserver mSettingsObserver;
++    private final Runnable mShiftRunnable = this::updateFromSettings;
+ 
+     private SmartPixelView mView;
++    private SystemBarsAlphaView mBarsAlphaView;
+ 
+     @Inject
+     public SmartPixelManager(
+@@ -38,6 +41,7 @@
+         mContext = context;
+         mWindowManager = windowManager;
+         mResolver = context.getContentResolver();
++        mMainHandler = mainHandler;
+         mSettingsObserver = new ContentObserver(mainHandler) {
+             @Override
+             public void onChange(boolean selfChange) {
+@@ -54,14 +58,31 @@
+         mResolver.registerContentObserver(
+                 Settings.Secure.getUriFor(SmartPixelSettings.KEY_PERCENT),
+                 false, mSettingsObserver, UserHandle.USER_ALL);
++        mResolver.registerContentObserver(
++                Settings.Secure.getUriFor(SmartPixelSettings.KEY_DIM_PERCENT),
++                false, mSettingsObserver, UserHandle.USER_ALL);
++        mResolver.registerContentObserver(
++                Settings.Secure.getUriFor(SmartPixelSettings.KEY_BURN_IN_TIMEOUT),
++                false, mSettingsObserver, UserHandle.USER_ALL);
++        mResolver.registerContentObserver(
++                Settings.Secure.getUriFor(SmartPixelSettings.KEY_SYSTEM_BARS_ALPHA),
++                false, mSettingsObserver, UserHandle.USER_ALL);
+         updateFromSettings();
+     }
+ 
+     private void updateFromSettings() {
++        mMainHandler.removeCallbacks(mShiftRunnable);
++        updateSystemBarsAlphaOverlay();
+         if (SmartPixelSettings.isEnabled(mResolver)) {
+             showOverlay();
+             if (mView != null) {
+-                mView.updatePattern(SmartPixelSettings.getPercent(mResolver));
++                int timeoutMs = SmartPixelSettings.getBurnInTimeoutMs(mResolver);
++                int shiftIndex = (int) ((System.currentTimeMillis() / timeoutMs) % 64);
++                mView.updatePattern(
++                        SmartPixelSettings.getPercent(mResolver),
++                        SmartPixelSettings.getDimPercent(mResolver),
++                        shiftIndex);
++                mMainHandler.postDelayed(mShiftRunnable, timeoutMs);
+             }
+         } else {
+             hideOverlay();
+@@ -72,6 +93,65 @@
+         if (mView != null) return;
+ 
+         SmartPixelView view = new SmartPixelView(mContext);
++        LayoutParams params = buildOverlayParams("SmartPixelFilter");
++
++        try {
++            mWindowManager.addView(view, params);
++            mView = view;
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Unable to add Smart Pixels overlay", e);
++        }
++    }
++
++    private void hideOverlay() {
++        mMainHandler.removeCallbacks(mShiftRunnable);
++        if (mView == null) return;
++        try {
++            mWindowManager.removeViewImmediate(mView);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Unable to remove Smart Pixels overlay", e);
++        } finally {
++            mView = null;
++        }
++    }
++
++    private void updateSystemBarsAlphaOverlay() {
++        int alphaPercent = SmartPixelSettings.getSystemBarsAlpha(mResolver);
++        if (alphaPercent <= 0) {
++            hideSystemBarsAlphaOverlay();
++            return;
++        }
++        showSystemBarsAlphaOverlay();
++        if (mBarsAlphaView != null) {
++            mBarsAlphaView.setAlphaPercent(alphaPercent);
++        }
++    }
++
++    private void showSystemBarsAlphaOverlay() {
++        if (mBarsAlphaView != null) return;
++
++        SystemBarsAlphaView view = new SystemBarsAlphaView(mContext);
++        LayoutParams params = buildOverlayParams("SmartPixelSystemBarsAlpha");
++        try {
++            mWindowManager.addView(view, params);
++            mBarsAlphaView = view;
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Unable to add Smart Pixels system-bars alpha overlay", e);
++        }
++    }
++
++    private void hideSystemBarsAlphaOverlay() {
++        if (mBarsAlphaView == null) return;
++        try {
++            mWindowManager.removeViewImmediate(mBarsAlphaView);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Unable to remove Smart Pixels system-bars alpha overlay", e);
++        } finally {
++            mBarsAlphaView = null;
++        }
++    }
++
++    private LayoutParams buildOverlayParams(String title) {
+         LayoutParams params = new LayoutParams(
+                 LayoutParams.MATCH_PARENT,
+                 LayoutParams.MATCH_PARENT,
+@@ -82,27 +162,10 @@
+                         | LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                         | LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                 PixelFormat.TRANSLUCENT);
+-        params.setTitle("SmartPixelFilter");
++        params.setTitle(title);
+         params.layoutInDisplayCutoutMode =
+                 LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+         params.privateFlags |= LayoutParams.PRIVATE_FLAG_TRUSTED_OVERLAY;
+-
+-        try {
+-            mWindowManager.addView(view, params);
+-            mView = view;
+-        } catch (RuntimeException e) {
+-            Log.w(TAG, "Unable to add Smart Pixels overlay", e);
+-        }
+-    }
+-
+-    private void hideOverlay() {
+-        if (mView == null) return;
+-        try {
+-            mWindowManager.removeViewImmediate(mView);
+-        } catch (RuntimeException e) {
+-            Log.w(TAG, "Unable to remove Smart Pixels overlay", e);
+-        } finally {
+-            mView = null;
+-        }
++        return params;
+     }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelSettings.java b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelSettings.java
+--- a/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelSettings.java
++++ b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelSettings.java
+@@ -8,10 +8,31 @@
+ public final class SmartPixelSettings {
+     public static final String KEY_ENABLED = Settings.Secure.SMART_PIXEL_FILTER_ENABLED;
+     public static final String KEY_PERCENT = Settings.Secure.SMART_PIXEL_FILTER_PERCENT;
++    public static final String KEY_DIM_PERCENT = Settings.Secure.SMART_PIXEL_FILTER_DIM_PERCENT;
++    public static final String KEY_SYSTEM_BARS_ALPHA =
++            Settings.Secure.SMART_PIXEL_SYSTEM_BARS_ALPHA;
++    public static final String KEY_BURN_IN_TIMEOUT = Settings.Secure.SMART_PIXEL_BURN_IN_TIMEOUT;
+ 
+     public static final int DEFAULT_PERCENT = 25;
+-    public static final int MIN_PERCENT = 10;
+-    public static final int MAX_PERCENT = 75;
++    public static final int MIN_PERCENT = 0;
++    public static final int MAX_PERCENT = 88;
++    public static final int DEFAULT_DIM_PERCENT = 0;
++    public static final int MAX_DIM_PERCENT = 90;
++    public static final int DEFAULT_SYSTEM_BARS_ALPHA = 0;
++    public static final int MAX_SYSTEM_BARS_ALPHA = 100;
++    public static final int DEFAULT_BURN_IN_TIMEOUT = 3;
++
++    public static final int[] BURN_IN_TIMEOUT_MS = new int[] {
++            15 * 1000,
++            30 * 1000,
++            60 * 1000,
++            2 * 60 * 1000,
++            5 * 60 * 1000,
++            10 * 60 * 1000,
++            20 * 60 * 1000,
++            30 * 60 * 1000,
++            60 * 60 * 1000,
++    };
+ 
+     private SmartPixelSettings() {}
+ 
+@@ -35,9 +56,35 @@
+                 resolver, KEY_PERCENT, clampPercent(percent), UserHandle.USER_CURRENT);
+     }
+ 
++    public static int getDimPercent(ContentResolver resolver) {
++        return clamp(Settings.Secure.getIntForUser(
++                resolver, KEY_DIM_PERCENT, DEFAULT_DIM_PERCENT, UserHandle.USER_CURRENT),
++                0, MAX_DIM_PERCENT);
++    }
++
++    public static int getSystemBarsAlpha(ContentResolver resolver) {
++        return clamp(Settings.Secure.getIntForUser(
++                resolver, KEY_SYSTEM_BARS_ALPHA, DEFAULT_SYSTEM_BARS_ALPHA,
++                UserHandle.USER_CURRENT), 0, MAX_SYSTEM_BARS_ALPHA);
++    }
++
++    public static int getBurnInTimeoutIndex(ContentResolver resolver) {
++        return clamp(Settings.Secure.getIntForUser(
++                resolver, KEY_BURN_IN_TIMEOUT, DEFAULT_BURN_IN_TIMEOUT,
++                UserHandle.USER_CURRENT), 0, BURN_IN_TIMEOUT_MS.length - 1);
++    }
++
++    public static int getBurnInTimeoutMs(ContentResolver resolver) {
++        return BURN_IN_TIMEOUT_MS[getBurnInTimeoutIndex(resolver)];
++    }
++
+     public static int clampPercent(int percent) {
+-        if (percent < MIN_PERCENT) return MIN_PERCENT;
+-        if (percent > MAX_PERCENT) return MAX_PERCENT;
+-        return percent;
++        return clamp(percent, MIN_PERCENT, MAX_PERCENT);
++    }
++
++    private static int clamp(int value, int min, int max) {
++        if (value < min) return min;
++        if (value > max) return max;
++        return value;
+     }
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelView.java b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelView.java
+--- a/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelView.java
++++ b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelView.java
+@@ -25,6 +25,17 @@
+             63, 31, 55, 23, 61, 29, 53, 21,
+     };
+ 
++    private static final int[] GRID_SHIFT = new int[] {
++             0,  1,  8,  9,  2,  3, 10, 11,
++             4,  5, 12, 13,  6,  7, 14, 15,
++            16, 17, 24, 25, 18, 19, 26, 27,
++            20, 21, 28, 29, 22, 23, 30, 31,
++            32, 33, 40, 41, 34, 35, 42, 43,
++            36, 37, 44, 45, 38, 39, 46, 47,
++            48, 49, 56, 57, 50, 51, 58, 59,
++            52, 53, 60, 61, 54, 55, 62, 63,
++    };
++
+     private final Paint mPatternPaint = new Paint();
+     private Bitmap mPatternBitmap;
+ 
+@@ -33,18 +44,22 @@
+         setLayerType(LAYER_TYPE_HARDWARE, null);
+     }
+ 
+-    public void updatePattern(int percent) {
++    public void updatePattern(int percent, int dimPercent, int shiftIndex) {
+         int clamped = SmartPixelSettings.clampPercent(percent);
+-        int threshold = Math.max(1, Math.min(TOTAL_PIXELS - 1,
++        int threshold = Math.max(0, Math.min(TOTAL_PIXELS,
+                 Math.round(TOTAL_PIXELS * clamped / 100f)));
++        int dimAlpha = Math.max(0, Math.min(255, Math.round(255f * dimPercent / 100f)));
++        int dimColor = Color.argb(dimAlpha, 0, 0, 0);
++        int shift = GRID_SHIFT[Math.floorMod(shiftIndex, GRID_SHIFT.length)];
++        int shiftX = shift % TILE_SIZE;
++        int shiftY = shift / TILE_SIZE;
+ 
+         Bitmap bitmap = Bitmap.createBitmap(TILE_SIZE, TILE_SIZE, Bitmap.Config.ARGB_8888);
+-        for (int y = 0; y < TILE_SIZE; y++) {
+-            for (int x = 0; x < TILE_SIZE; x++) {
+-                if (BAYER_MATRIX[y * TILE_SIZE + x] < threshold) {
+-                    bitmap.setPixel(x, y, Color.BLACK);
+-                }
+-            }
++        for (int i = 0; i < TOTAL_PIXELS; i++) {
++            int x = (i % TILE_SIZE + shiftX) % TILE_SIZE;
++            int y = (i / TILE_SIZE + shiftY) % TILE_SIZE;
++            int color = BAYER_MATRIX[i] < threshold ? Color.BLACK : dimColor;
++            bitmap.setPixel(x, y, color);
+         }
+ 
+         if (mPatternBitmap != null) {
+diff --git a/packages/SystemUI/src/com/android/systemui/smartpixel/SystemBarsAlphaView.java b/packages/SystemUI/src/com/android/systemui/smartpixel/SystemBarsAlphaView.java
+new file mode 100644
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/smartpixel/SystemBarsAlphaView.java
+@@ -0,0 +1,125 @@
++package com.android.systemui.smartpixel;
++
++import android.content.Context;
++import android.content.res.Configuration;
++import android.content.res.Resources;
++import android.graphics.Canvas;
++import android.graphics.Color;
++import android.graphics.Insets;
++import android.graphics.Paint;
++import android.view.View;
++import android.view.WindowInsets;
++
++import com.android.internal.policy.SystemBarUtils;
++
++/**
++ * Visual fallback for Smart Pixels' system-bars alpha control.
++ *
++ * <p>On Android 16/QPR2 the status/navigation bars may be composed in windows or
++ * surfaces that do not reliably react to child view alpha. This trusted overlay
++ * sits above the bars and draws only over status/navigation-bar insets, making
++ * the alpha percentage visibly affect the system bars regardless of which
++ * SystemUI status-bar implementation is active.</p>
++ */
++public final class SystemBarsAlphaView extends View {
++    private final Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
++    private int mAlphaPercent;
++
++    public SystemBarsAlphaView(Context context) {
++        super(context);
++        mPaint.setColor(Color.BLACK);
++        setWillNotDraw(false);
++    }
++
++    public void setAlphaPercent(int percent) {
++        int clamped = Math.max(0, Math.min(SmartPixelSettings.MAX_SYSTEM_BARS_ALPHA, percent));
++        if (mAlphaPercent == clamped) return;
++        mAlphaPercent = clamped;
++        mPaint.setAlpha(Math.round(255f * mAlphaPercent / 100f));
++        invalidate();
++    }
++
++    @Override
++    public WindowInsets onApplyWindowInsets(WindowInsets insets) {
++        invalidate();
++        return super.onApplyWindowInsets(insets);
++    }
++
++    @Override
++    protected void onConfigurationChanged(Configuration newConfig) {
++        super.onConfigurationChanged(newConfig);
++        invalidate();
++    }
++
++    @Override
++    protected void onDraw(Canvas canvas) {
++        super.onDraw(canvas);
++        if (mAlphaPercent <= 0) return;
++
++        final int width = getWidth();
++        final int height = getHeight();
++        if (width <= 0 || height <= 0) return;
++
++        Insets statusInsets = Insets.NONE;
++        Insets navInsets = Insets.NONE;
++        final WindowInsets rootInsets = getRootWindowInsets();
++        if (rootInsets != null) {
++            statusInsets = rootInsets.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars());
++            navInsets = rootInsets.getInsetsIgnoringVisibility(WindowInsets.Type.navigationBars());
++        }
++
++        final int statusTop = Math.max(statusInsets.top, getStatusBarHeight());
++        if (statusTop > 0) {
++            canvas.drawRect(0, 0, width, Math.min(statusTop, height), mPaint);
++        }
++
++        int navLeft = navInsets.left;
++        int navRight = navInsets.right;
++        int navBottom = navInsets.bottom;
++        if (navLeft == 0 && navRight == 0 && navBottom == 0 && shouldFallbackNavigationBar()) {
++            if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
++                navRight = getNavigationBarWidth();
++            } else {
++                navBottom = getNavigationBarHeight();
++            }
++        }
++
++        if (navLeft > 0) {
++            canvas.drawRect(0, 0, Math.min(navLeft, width), height, mPaint);
++        }
++        if (navRight > 0) {
++            canvas.drawRect(Math.max(0, width - navRight), 0, width, height, mPaint);
++        }
++        if (navBottom > 0) {
++            canvas.drawRect(0, Math.max(0, height - navBottom), width, height, mPaint);
++        }
++    }
++
++    private int getStatusBarHeight() {
++        try {
++            return SystemBarUtils.getStatusBarHeight(getContext());
++        } catch (Throwable ignored) {
++            return getAndroidDimen("status_bar_height");
++        }
++    }
++
++    private int getNavigationBarHeight() {
++        return getAndroidDimen("navigation_bar_height");
++    }
++
++    private int getNavigationBarWidth() {
++        return getAndroidDimen("navigation_bar_width");
++    }
++
++    private boolean shouldFallbackNavigationBar() {
++        final Resources res = getResources();
++        final int id = res.getIdentifier("config_showNavigationBar", "bool", "android");
++        return id != 0 && res.getBoolean(id);
++    }
++
++    private int getAndroidDimen(String name) {
++        final Resources res = getResources();
++        final int id = res.getIdentifier(name, "dimen", "android");
++        return id != 0 ? res.getDimensionPixelSize(id) : 0;
++    }
++}

@@ -1,0 +1,571 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Tue, 9 Jun 2026 00:00:00 +0300
+Subject: [PATCH] SystemUI: add Smart Pixels overlay and QS tile
+
+Add a LieppOS Smart Pixels implementation backed by Settings.Secure.
+SystemUI starts a trusted black-pixel overlay, exposes a smart_pixels QS tile,
+and uses the same smart_pixel_filter_enabled / percent keys as the LieppOS app.
+
+---
+ core/java/android/provider/Settings.java           |  14 +++
+ .../res/drawable/qs_smart_pixels_icon_off.xml      |  11 ++
+ .../res/drawable/qs_smart_pixels_icon_on.xml       |  20 ++++
+ packages/SystemUI/res/values/config.xml            |   2 +-
+ packages/SystemUI/res/values/strings.xml           |   6 +
+ .../systemui/dagger/SystemUICoreStartableModule.kt |   7 ++
+ .../systemui/smartpixel/SmartPixelManager.java     | 108 +++++++++++++++++
+ .../systemui/smartpixel/SmartPixelSettings.java    |  43 +++++++
+ .../systemui/smartpixel/SmartPixelTile.java        | 132 +++++++++++++++++++++
+ .../systemui/smartpixel/SmartPixelView.java        |  73 ++++++++++++
+ .../systemui/statusbar/policy/PolicyModule.kt      |  22 ++++
+ 11 files changed, 437 insertions(+), 1 deletion(-)
+
+diff --git a/core/java/android/provider/Settings.java b/core/java/android/provider/Settings.java
+index 6ce5f01da56d..814c1285c1a4 100644
+--- a/core/java/android/provider/Settings.java
++++ b/core/java/android/provider/Settings.java
+@@ -11764,6 +11764,20 @@ public final class Settings {
+         public static final String LIEPPOS_SMOOTH_IDLE_TIMEOUT_SEC =
+                 "lieppos_smooth_idle_timeout_sec";
+ 
++        /**
++         * Whether to enable Smart Pixels.
++         * @hide
++         */
++        public static final String SMART_PIXEL_FILTER_ENABLED =
++                "smart_pixel_filter_enabled";
++
++        /**
++         * Smart Pixels percentage, clamped by SystemUI to 10..75.
++         * @hide
++         */
++        public static final String SMART_PIXEL_FILTER_PERCENT =
++                "smart_pixel_filter_percent";
++
+         /**
+          * The current assistant component. It could be a voice interaction service,
+          * or an activity that handles ACTION_ASSIST, or empty which means using the default
+diff --git a/packages/SystemUI/res/drawable/qs_smart_pixels_icon_off.xml b/packages/SystemUI/res/drawable/qs_smart_pixels_icon_off.xml
+new file mode 100644
+index 000000000000..1a7a98189f57
+--- /dev/null
++++ b/packages/SystemUI/res/drawable/qs_smart_pixels_icon_off.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24"
++    android:tint="?android:attr/colorControlNormal">
++    <path
++        android:fillColor="@android:color/white"
++        android:pathData="M12,1L3,5v6c0,5.55 3.84,10.74 9,12c5.16,-1.26 9,-6.45 9,-12V5L12,1zM19,11c0,4.52 -3.13,8.69 -7,9.93C8.13,19.69 5,15.52 5,11V6.3l7,-3.11l7,3.11V11z" />
++</vector>
+diff --git a/packages/SystemUI/res/drawable/qs_smart_pixels_icon_on.xml b/packages/SystemUI/res/drawable/qs_smart_pixels_icon_on.xml
+new file mode 100644
+index 000000000000..fa110b9c3549
+--- /dev/null
++++ b/packages/SystemUI/res/drawable/qs_smart_pixels_icon_on.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp"
++    android:height="24dp"
++    android:viewportWidth="24"
++    android:viewportHeight="24"
++    android:tint="?android:attr/colorControlNormal">
++    <path
++        android:fillColor="@android:color/white"
++        android:pathData="M12,1L3,5v6c0,5.55 3.84,10.74 9,12c5.16,-1.26 9,-6.45 9,-12V5L12,1z" />
++    <path
++        android:fillColor="@android:color/black"
++        android:pathData="M7,6.5v9.5c0.95,1.32 2.14,2.44 3.5,3.28V6h-1.5C8.45,6 7.73,6.17 7,6.5z" />
++    <path
++        android:fillColor="@android:color/black"
++        android:pathData="M11,5.17v14.08c0.33,0.09 0.66,0.17 1,0.23c0.34,-0.06 0.67,-0.14 1,-0.23V5.17c-0.33,-0.06 -0.66,-0.11 -1,-0.14C11.66,5.06 11.33,5.11 11,5.17z" />
++    <path
++        android:fillColor="@android:color/black"
++        android:pathData="M15,6h-1.5v13.28c1.36,-0.84 2.55,-1.96 3.5,-3.28V6.5C16.27,6.17 15.55,6 15,6z" />
++</vector>
+diff --git a/packages/SystemUI/res/values/config.xml b/packages/SystemUI/res/values/config.xml
+index a4443faffdf2..6931c00bd148 100644
+--- a/packages/SystemUI/res/values/config.xml
++++ b/packages/SystemUI/res/values/config.xml
+@@ -120,7 +120,7 @@
+ 
+     <!-- Tiles native to System UI. Order should match "quick_settings_tiles_default" -->
+     <string name="quick_settings_tiles_stock" translatable="false">
+-        internet,wifi,cell,bt,flashlight,superflashlight,redlight,bluelight,adb_debugging,adb_root,gps_refresh,usb_mode,screen_timeout,split,dnd,modes_dnd,alarm,airplane,nfc,controls,wallet,rotation,battery,cast,screenrecord,mictoggle,cameratoggle,location,hotspot,inversion,saver,dark,work,night,reverse,reduce_brightness,qr_code_scanner,onehanded,color_correction,dream,font_scaling,record_issue,hearing_devices,notes,desktopeffects,ambient_display,aod,caffeine,heads_up,powershare,profiles,reading_mode,sync,usb_tether,vpn
++        internet,wifi,cell,bt,flashlight,superflashlight,redlight,bluelight,adb_debugging,adb_root,gps_refresh,usb_mode,screen_timeout,smart_pixels,split,dnd,modes_dnd,alarm,airplane,nfc,controls,wallet,rotation,battery,cast,screenrecord,mictoggle,cameratoggle,location,hotspot,inversion,saver,dark,work,night,reverse,reduce_brightness,qr_code_scanner,onehanded,color_correction,dream,font_scaling,record_issue,hearing_devices,notes,desktopeffects,ambient_display,aod,caffeine,heads_up,powershare,profiles,reading_mode,sync,usb_tether,vpn
+     </string>
+ 
+     <!-- The tiles to display in QuickSettings -->
+diff --git a/packages/SystemUI/res/values/strings.xml b/packages/SystemUI/res/values/strings.xml
+index ebcbf5c34eb9..10ecb33c3a6b 100644
+--- a/packages/SystemUI/res/values/strings.xml
++++ b/packages/SystemUI/res/values/strings.xml
+@@ -1064,6 +1064,12 @@
+     <!-- QuickSettings: Super Flashlight -->
+     <string name="quick_settings_super_flashlight_label">Super Flashlight</string>
+ 
++    <!-- QuickSettings: Smart Pixels [CHAR LIMIT=NONE] -->
++    <string name="quick_settings_smart_pixels_label">Smart Pixels</string>
++    <!-- QuickSettings: Smart Pixels secondary labels [CHAR LIMIT=NONE] -->
++    <string name="quick_settings_smart_pixels_on">On</string>
++    <string name="quick_settings_smart_pixels_off">Off</string>
++
+     <!-- QuickSettings: adb debugging [CHAR LIMIT=NONE] -->
+     <string name="quick_settings_adb_debugging_label">ADB debugging</string>
+ 
+diff --git a/packages/SystemUI/src/com/android/systemui/dagger/SystemUICoreStartableModule.kt b/packages/SystemUI/src/com/android/systemui/dagger/SystemUICoreStartableModule.kt
+index 6463529a8901..144dd950b341 100644
+--- a/packages/SystemUI/src/com/android/systemui/dagger/SystemUICoreStartableModule.kt
++++ b/packages/SystemUI/src/com/android/systemui/dagger/SystemUICoreStartableModule.kt
+@@ -50,6 +50,7 @@ import com.android.systemui.media.taptotransfer.receiver.MediaTttChipControllerR
+ import com.android.systemui.media.taptotransfer.sender.MediaTttSenderCoordinator
+ import com.android.systemui.mediaprojection.taskswitcher.MediaProjectionTaskSwitcherCoreStartable
+ import com.android.systemui.shortcut.ShortcutKeyDispatcher
++import com.android.systemui.smartpixel.SmartPixelManager
+ import com.android.systemui.statusbar.ImmersiveModeConfirmation
+ import com.android.systemui.statusbar.gesture.GesturePointerEventListener
+ import com.android.systemui.statusbar.notification.InstantAppNotifier
+@@ -329,4 +330,10 @@ abstract class SystemUICoreStartableModule {
+     abstract fun bindSysUIKeyGestureEventInitializer(
+         keyGestureEventInitializer: SysUIKeyGestureEventInitializer
+     ): CoreStartable
++
++    /** Inject into SmartPixelManager. */
++    @Binds
++    @IntoMap
++    @ClassKey(SmartPixelManager::class)
++    abstract fun bindSmartPixelManager(impl: SmartPixelManager): CoreStartable
+ }
+diff --git a/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelManager.java b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelManager.java
+new file mode 100644
+index 000000000000..62e7af450088
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelManager.java
+@@ -0,0 +1,108 @@
++package com.android.systemui.smartpixel;
++
++import android.content.ContentResolver;
++import android.content.Context;
++import android.database.ContentObserver;
++import android.graphics.PixelFormat;
++import android.os.Handler;
++import android.os.UserHandle;
++import android.provider.Settings;
++import android.util.Log;
++import android.view.WindowManager;
++import android.view.WindowManager.LayoutParams;
++
++import com.android.systemui.CoreStartable;
++import com.android.systemui.dagger.SysUISingleton;
++import com.android.systemui.dagger.qualifiers.Application;
++import com.android.systemui.dagger.qualifiers.Main;
++
++import javax.inject.Inject;
++
++/** Starts and keeps the Smart Pixels overlay in sync with Settings.Secure. */
++@SysUISingleton
++public class SmartPixelManager implements CoreStartable {
++    private static final String TAG = "SmartPixelManager";
++
++    private final Context mContext;
++    private final WindowManager mWindowManager;
++    private final ContentResolver mResolver;
++    private final ContentObserver mSettingsObserver;
++
++    private SmartPixelView mView;
++
++    @Inject
++    public SmartPixelManager(
++            @Application Context context,
++            WindowManager windowManager,
++            @Main Handler mainHandler) {
++        mContext = context;
++        mWindowManager = windowManager;
++        mResolver = context.getContentResolver();
++        mSettingsObserver = new ContentObserver(mainHandler) {
++            @Override
++            public void onChange(boolean selfChange) {
++                updateFromSettings();
++            }
++        };
++    }
++
++    @Override
++    public void start() {
++        mResolver.registerContentObserver(
++                Settings.Secure.getUriFor(SmartPixelSettings.KEY_ENABLED),
++                false, mSettingsObserver, UserHandle.USER_ALL);
++        mResolver.registerContentObserver(
++                Settings.Secure.getUriFor(SmartPixelSettings.KEY_PERCENT),
++                false, mSettingsObserver, UserHandle.USER_ALL);
++        updateFromSettings();
++    }
++
++    private void updateFromSettings() {
++        if (SmartPixelSettings.isEnabled(mResolver)) {
++            showOverlay();
++            if (mView != null) {
++                mView.updatePattern(SmartPixelSettings.getPercent(mResolver));
++            }
++        } else {
++            hideOverlay();
++        }
++    }
++
++    private void showOverlay() {
++        if (mView != null) return;
++
++        SmartPixelView view = new SmartPixelView(mContext);
++        LayoutParams params = new LayoutParams(
++                LayoutParams.MATCH_PARENT,
++                LayoutParams.MATCH_PARENT,
++                LayoutParams.TYPE_SECURE_SYSTEM_OVERLAY,
++                LayoutParams.FLAG_NOT_FOCUSABLE
++                        | LayoutParams.FLAG_NOT_TOUCHABLE
++                        | LayoutParams.FLAG_LAYOUT_IN_SCREEN
++                        | LayoutParams.FLAG_LAYOUT_NO_LIMITS
++                        | LayoutParams.FLAG_HARDWARE_ACCELERATED,
++                PixelFormat.TRANSLUCENT);
++        params.setTitle("SmartPixelFilter");
++        params.layoutInDisplayCutoutMode =
++                LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
++        params.privateFlags |= LayoutParams.PRIVATE_FLAG_TRUSTED_OVERLAY;
++
++        try {
++            mWindowManager.addView(view, params);
++            mView = view;
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Unable to add Smart Pixels overlay", e);
++        }
++    }
++
++    private void hideOverlay() {
++        if (mView == null) return;
++        try {
++            mWindowManager.removeViewImmediate(mView);
++        } catch (RuntimeException e) {
++            Log.w(TAG, "Unable to remove Smart Pixels overlay", e);
++        } finally {
++            mView = null;
++        }
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelSettings.java b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelSettings.java
+new file mode 100644
+index 000000000000..c64a07fa9bbf
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelSettings.java
+@@ -0,0 +1,43 @@
++package com.android.systemui.smartpixel;
++
++import android.content.ContentResolver;
++import android.os.UserHandle;
++import android.provider.Settings;
++
++/** Shared secure-setting keys and helpers for LieppOS Smart Pixels. */
++public final class SmartPixelSettings {
++    public static final String KEY_ENABLED = Settings.Secure.SMART_PIXEL_FILTER_ENABLED;
++    public static final String KEY_PERCENT = Settings.Secure.SMART_PIXEL_FILTER_PERCENT;
++
++    public static final int DEFAULT_PERCENT = 25;
++    public static final int MIN_PERCENT = 10;
++    public static final int MAX_PERCENT = 75;
++
++    private SmartPixelSettings() {}
++
++    public static boolean isEnabled(ContentResolver resolver) {
++        return Settings.Secure.getIntForUser(
++                resolver, KEY_ENABLED, 0, UserHandle.USER_CURRENT) == 1;
++    }
++
++    public static void setEnabled(ContentResolver resolver, boolean enabled) {
++        Settings.Secure.putIntForUser(
++                resolver, KEY_ENABLED, enabled ? 1 : 0, UserHandle.USER_CURRENT);
++    }
++
++    public static int getPercent(ContentResolver resolver) {
++        return clampPercent(Settings.Secure.getIntForUser(
++                resolver, KEY_PERCENT, DEFAULT_PERCENT, UserHandle.USER_CURRENT));
++    }
++
++    public static void setPercent(ContentResolver resolver, int percent) {
++        Settings.Secure.putIntForUser(
++                resolver, KEY_PERCENT, clampPercent(percent), UserHandle.USER_CURRENT);
++    }
++
++    public static int clampPercent(int percent) {
++        if (percent < MIN_PERCENT) return MIN_PERCENT;
++        if (percent > MAX_PERCENT) return MAX_PERCENT;
++        return percent;
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelTile.java b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelTile.java
+new file mode 100644
+index 000000000000..48f874962179
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelTile.java
+@@ -0,0 +1,132 @@
++package com.android.systemui.smartpixel;
++
++import android.content.Intent;
++import android.database.ContentObserver;
++import android.os.Handler;
++import android.os.Looper;
++import android.os.UserHandle;
++import android.provider.Settings;
++import android.service.quicksettings.Tile;
++import android.widget.Switch;
++
++import androidx.annotation.Nullable;
++
++import com.android.internal.logging.MetricsLogger;
++import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
++import com.android.systemui.animation.Expandable;
++import com.android.systemui.dagger.qualifiers.Background;
++import com.android.systemui.dagger.qualifiers.Main;
++import com.android.systemui.plugins.ActivityStarter;
++import com.android.systemui.plugins.FalsingManager;
++import com.android.systemui.plugins.qs.QSTile.BooleanState;
++import com.android.systemui.plugins.statusbar.StatusBarStateController;
++import com.android.systemui.qs.QSHost;
++import com.android.systemui.qs.QsEventLogger;
++import com.android.systemui.qs.logging.QSLogger;
++import com.android.systemui.qs.tileimpl.QSTileImpl;
++import com.android.systemui.res.R;
++
++import javax.inject.Inject;
++
++/** QS tile that toggles LieppOS Smart Pixels. */
++public class SmartPixelTile extends QSTileImpl<BooleanState> {
++    public static final String TILE_SPEC = "smart_pixels";
++
++    private static final String LIEPPOS_PACKAGE = "com.lieppos.settings";
++    private static final String LIEPPOS_SETTINGS_ACTION = "com.lieppos.settings.LIEPPOS_SETTINGS";
++    private static final String DISPLAY_FRAGMENT = "com.lieppos.settings.fragments.DisplaySettings";
++    private static final String EXTRA_SHOW_FRAGMENT = ":settings:show_fragment";
++    private static final String EXTRA_SHOW_FRAGMENT_TITLE = ":settings:show_fragment_title";
++
++    private final ContentObserver mObserver;
++
++    @Inject
++    public SmartPixelTile(
++            QSHost host,
++            QsEventLogger uiEventLogger,
++            @Background Looper backgroundLooper,
++            @Main Handler mainHandler,
++            FalsingManager falsingManager,
++            MetricsLogger metricsLogger,
++            StatusBarStateController statusBarStateController,
++            ActivityStarter activityStarter,
++            QSLogger qsLogger) {
++        super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager,
++                metricsLogger, statusBarStateController, activityStarter, qsLogger);
++        mObserver = new ContentObserver(mainHandler) {
++            @Override
++            public void onChange(boolean selfChange) {
++                refreshState();
++            }
++        };
++    }
++
++    @Override
++    public CharSequence getTileLabel() {
++        return mContext.getString(R.string.quick_settings_smart_pixels_label);
++    }
++
++    @Override
++    public Intent getLongClickIntent() {
++        Intent intent = new Intent(LIEPPOS_SETTINGS_ACTION);
++        intent.setPackage(LIEPPOS_PACKAGE);
++        intent.putExtra(EXTRA_SHOW_FRAGMENT, DISPLAY_FRAGMENT);
++        intent.putExtra(EXTRA_SHOW_FRAGMENT_TITLE,
++                mContext.getString(R.string.quick_settings_smart_pixels_label));
++        return intent;
++    }
++
++    @Override
++    protected void handleClick(@Nullable Expandable expandable) {
++        boolean newValue = !SmartPixelSettings.isEnabled(mContext.getContentResolver());
++        SmartPixelSettings.setEnabled(mContext.getContentResolver(), newValue);
++        refreshState(newValue);
++    }
++
++    @Override
++    protected void handleSetListening(boolean listening) {
++        super.handleSetListening(listening);
++        if (listening) {
++            mContext.getContentResolver().registerContentObserver(
++                    Settings.Secure.getUriFor(SmartPixelSettings.KEY_ENABLED),
++                    false, mObserver, UserHandle.USER_ALL);
++        } else {
++            mContext.getContentResolver().unregisterContentObserver(mObserver);
++        }
++    }
++
++    @Override
++    protected void handleUpdateState(BooleanState state, Object arg) {
++        boolean enabled = arg instanceof Boolean
++                ? (Boolean) arg
++                : SmartPixelSettings.isEnabled(mContext.getContentResolver());
++        state.value = enabled;
++        state.label = getTileLabel();
++        state.secondaryLabel = mContext.getString(enabled
++                ? R.string.quick_settings_smart_pixels_on
++                : R.string.quick_settings_smart_pixels_off);
++        state.icon = maybeLoadResourceIcon(enabled
++                ? R.drawable.qs_smart_pixels_icon_on
++                : R.drawable.qs_smart_pixels_icon_off);
++        state.state = enabled ? Tile.STATE_ACTIVE : Tile.STATE_INACTIVE;
++        state.contentDescription = state.label;
++        state.expandedAccessibilityClassName = Switch.class.getName();
++    }
++
++    @Override
++    public BooleanState newTileState() {
++        BooleanState state = new BooleanState();
++        state.handlesLongClick = true;
++        return state;
++    }
++
++    @Override
++    public boolean isAvailable() {
++        return true;
++    }
++
++    @Override
++    public int getMetricsCategory() {
++        return MetricsEvent.QS_PANEL;
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelView.java b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelView.java
+new file mode 100644
+index 000000000000..d363dda9dd62
+--- /dev/null
++++ b/packages/SystemUI/src/com/android/systemui/smartpixel/SmartPixelView.java
+@@ -0,0 +1,73 @@
++package com.android.systemui.smartpixel;
++
++import android.content.Context;
++import android.graphics.Bitmap;
++import android.graphics.BitmapShader;
++import android.graphics.Canvas;
++import android.graphics.Color;
++import android.graphics.Paint;
++import android.graphics.Shader;
++import android.view.View;
++
++/** Full-screen repeating black-pixel mask used by Smart Pixels. */
++public class SmartPixelView extends View {
++    private static final int TILE_SIZE = 8;
++    private static final int TOTAL_PIXELS = TILE_SIZE * TILE_SIZE;
++
++    private static final int[] BAYER_MATRIX = new int[] {
++             0, 32,  8, 40,  2, 34, 10, 42,
++            48, 16, 56, 24, 50, 18, 58, 26,
++            12, 44,  4, 36, 14, 46,  6, 38,
++            60, 28, 52, 20, 62, 30, 54, 22,
++             3, 35, 11, 43,  1, 33,  9, 41,
++            51, 19, 59, 27, 49, 17, 57, 25,
++            15, 47,  7, 39, 13, 45,  5, 37,
++            63, 31, 55, 23, 61, 29, 53, 21,
++    };
++
++    private final Paint mPatternPaint = new Paint();
++    private Bitmap mPatternBitmap;
++
++    public SmartPixelView(Context context) {
++        super(context);
++        setLayerType(LAYER_TYPE_HARDWARE, null);
++    }
++
++    public void updatePattern(int percent) {
++        int clamped = SmartPixelSettings.clampPercent(percent);
++        int threshold = Math.max(1, Math.min(TOTAL_PIXELS - 1,
++                Math.round(TOTAL_PIXELS * clamped / 100f)));
++
++        Bitmap bitmap = Bitmap.createBitmap(TILE_SIZE, TILE_SIZE, Bitmap.Config.ARGB_8888);
++        for (int y = 0; y < TILE_SIZE; y++) {
++            for (int x = 0; x < TILE_SIZE; x++) {
++                if (BAYER_MATRIX[y * TILE_SIZE + x] < threshold) {
++                    bitmap.setPixel(x, y, Color.BLACK);
++                }
++            }
++        }
++
++        if (mPatternBitmap != null) {
++            mPatternBitmap.recycle();
++        }
++        mPatternBitmap = bitmap;
++        mPatternPaint.setShader(new BitmapShader(bitmap,
++                Shader.TileMode.REPEAT, Shader.TileMode.REPEAT));
++        invalidate();
++    }
++
++    @Override
++    protected void onDraw(Canvas canvas) {
++        if (mPatternBitmap == null) return;
++        canvas.drawRect(0f, 0f, getWidth(), getHeight(), mPatternPaint);
++    }
++
++    @Override
++    protected void onDetachedFromWindow() {
++        super.onDetachedFromWindow();
++        if (mPatternBitmap != null) {
++            mPatternBitmap.recycle();
++            mPatternBitmap = null;
++        }
++    }
++}
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt b/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
+index b037f0d7d0b8..9ab0d3839c22 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/policy/PolicyModule.kt
+@@ -88,6 +88,7 @@ import com.android.systemui.qs.tiles.impl.work.domain.interactor.WorkModeTileUse
+ import com.android.systemui.qs.tiles.impl.work.domain.model.WorkModeTileModel
+ import com.android.systemui.qs.tiles.impl.work.ui.mapper.WorkModeTileMapper
+ import com.android.systemui.res.R
++import com.android.systemui.smartpixel.SmartPixelTile
+ import dagger.Binds
+ import dagger.Module
+ import dagger.Provides
+@@ -629,6 +630,22 @@ interface PolicyModule {
+                 category = TileCategory.LIEPPOS,
+             )
+ 
++        /** Edit-mode config for the Smart Pixels tile */
++        @Provides
++        @IntoMap
++        @StringKey(SmartPixelTile.TILE_SPEC)
++        fun provideSmartPixelTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
++            QSTileConfig(
++                tileSpec = TileSpec.create(SmartPixelTile.TILE_SPEC),
++                uiConfig =
++                    QSTileUIConfig.Resource(
++                        iconRes = R.drawable.qs_smart_pixels_icon_off,
++                        labelRes = R.string.quick_settings_smart_pixels_label,
++                    ),
++                instanceId = uiEventLogger.getNewInstanceId(),
++                category = TileCategory.DISPLAY,
++            )
++
+         /** Edit-mode config for the LieppOS Screen Timeout tile */
+         @Provides
+         @IntoMap
+@@ -691,6 +708,11 @@ interface PolicyModule {
+     @StringKey(ScreenTimeoutTile.TILE_SPEC)
+     fun bindScreenTimeoutTile(tile: ScreenTimeoutTile): QSTileImpl<*>
+ 
++    @Binds
++    @IntoMap
++    @StringKey(SmartPixelTile.TILE_SPEC)
++    fun bindSmartPixelTile(tile: SmartPixelTile): QSTileImpl<*>
++
+     /** Inject LocationTile into tileMap in QSModule */
+     @Binds
+     @IntoMap
