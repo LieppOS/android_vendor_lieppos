@@ -25,8 +25,7 @@ This document lists the ROM features and LieppOS-specific additions carried unde
 
 ## Common packages shipped in all builds
 
-- Google WebView 64-bit (`WebViewGoogle64`) and Trichrome library.
-- WebView provider configuration in product sysconfig.
+- Uses the Lineage/AOSP Android System WebView provider (`com.android.webview`); the previously bundled Google WebView/Trichrome prebuilts were removed.
 - Ulefone/Armor thermal camera app (`M170infisens`) with default permissions.
 - MTK charging-control Lineage Health HAL (`vendor.lineage.health-service.default`).
 - Camp-light / LED / touchscreen helper scripts:

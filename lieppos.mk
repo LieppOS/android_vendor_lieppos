@@ -14,18 +14,9 @@
 # LieppOS sepolicy (system_ext-side, hosts the lineage health HAL on GSI)
 SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += vendor/lieppos/sepolicy
 
-# WebView (Google WebView 64-bit + Trichrome)
-PRODUCT_PACKAGES += \
-    WebViewGoogle64 \
-    TrichromeLibrary64
-
 # Thermal camera app (Ulefone IR sensor)
 PRODUCT_PACKAGES += \
     M170infisens
-
-# WebView provider config
-PRODUCT_COPY_FILES += \
-    vendor/lieppos/sysconfig/webviewproviders.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/sysconfig/webviewproviders.xml
 
 # Thermal camera default permissions
 PRODUCT_COPY_FILES += \
