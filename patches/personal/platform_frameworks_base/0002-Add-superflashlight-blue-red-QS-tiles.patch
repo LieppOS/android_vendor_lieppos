@@ -13,9 +13,9 @@ Change-Id: Ifeeb20f0728b1866c9debd83fdc23b5324467a83
  .../systemui/qs/tiles/BlueLightTile.java      |  91 +++++++
  .../systemui/qs/tiles/RedLightTile.java       |  91 +++++++
  .../qs/tiles/SuperFlashlightTile.java         | 247 ++++++++++++++++++
- .../systemui/qs/tiles/YftCampLightLeds.java   | 114 ++++++++
+ .../systemui/qs/tiles/YftCampLightLeds.java   | 116 ++++++++
  .../systemui/statusbar/policy/PolicyModule.kt |  18 ++
- 10 files changed, 625 insertions(+), 1 deletion(-)
+ 10 files changed, 627 insertions(+), 1 deletion(-)
  create mode 100644 packages/SystemUI/res/drawable/qs_blue_light_icon.xml
  create mode 100644 packages/SystemUI/res/drawable/qs_red_light_icon.xml
  create mode 100644 packages/SystemUI/res/drawable/qs_super_flashlight_icon.xml
@@ -572,7 +572,7 @@ new file mode 100644
 index 000000000000..b5ac1e5a5f4d
 --- /dev/null
 +++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/YftCampLightLeds.java
-@@ -0,0 +1,114 @@
+@@ -0,0 +1,116 @@
 +package com.android.systemui.qs.tiles;
 +
 +import android.content.Context;
@@ -645,12 +645,14 @@ index 000000000000..b5ac1e5a5f4d
 +    }
 +
 +    static void setRedFlashy(Context c) {
-+        setMode(c, getLightMask(getMode(c)) == MODE_RED_BLUE
++        int current = getMode(c);
++        setMode(c, (getLightMask(current) & MODE_BLUE) != 0
 +                ? MODE_RED_BLUE_FLASHY : MODE_RED_FLASHY);
 +    }
 +
 +    static void setBlueFlashy(Context c) {
-+        setMode(c, getLightMask(getMode(c)) == MODE_RED_BLUE
++        int current = getMode(c);
++        setMode(c, (getLightMask(current) & MODE_RED) != 0
 +                ? MODE_RED_BLUE_FLASHY : MODE_BLUE_FLASHY);
 +    }
 +
