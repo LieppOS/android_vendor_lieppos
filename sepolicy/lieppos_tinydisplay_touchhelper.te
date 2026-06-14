@@ -17,8 +17,13 @@ binder_call(tinydisplay_touch_daemon, system_server)
 # cmd/activity also triggers a reverse binder interaction from system_server
 # toward the caller domain; without this cmd hangs/fails with Failed transaction.
 binder_call(system_server, tinydisplay_touch_daemon)
-# Keep the app helper allowance too; harmless if it remains blocked by app sandboxing.
+# Keep the app helper allowances too; harmless if it remains blocked by app
+# sandboxing. TinyDisplayTouchHelper probes /dev/input before falling back to
+# the native daemon; the OEM /proc/bus/input/devices label is vendor-private, so
+# suppress that probe separately through proc_type dontaudit instead of naming it.
+allow system_app input_device:dir r_dir_perms;
 allow system_app input_device:chr_file r_file_perms;
+dontaudit system_app proc_type:file r_file_perms;
 # Live drag: the daemon streams raw touch coordinates to the app over an
 # abstract UNIX socket so the next page can follow the finger. It must be able
 # to create its own client socket and connect to the app's listening socket.

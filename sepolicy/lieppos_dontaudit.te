@@ -4,3 +4,7 @@ dontaudit system_app default_android_hwservice:hwservice_manager find;
 dontaudit system_app default_android_service:service_manager find;
 dontaudit priv_app default_android_service:service_manager find;
 dontaudit system_server default_android_service:service_manager find;
+# lieppos_microg already has the TE allow for system_data_file:dir search, but
+# Android MCS labels /data/data as s0:c512,c768 on this target. Do not grant a
+# broad MLS bypass; just suppress the harmless one-per-second probe noise.
+dontaudit lieppos_microg system_data_file:dir search;
