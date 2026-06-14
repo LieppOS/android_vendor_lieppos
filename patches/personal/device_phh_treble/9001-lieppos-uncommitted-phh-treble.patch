@@ -1,30 +1,31 @@
-From c6f26ae652ed0f3eccd0af39643382a28df55364 Mon Sep 17 00:00:00 2001
+From 71c019db9cef1cea2dcc10cf2337b804a3684793 Mon Sep 17 00:00:00 2001
 From: ArnoldasMk <arnoldas.kanobi@gmail.com>
 Date: Tue, 9 Jun 2026 03:28:40 +0300
-Subject: [PATCH] LieppOS uncommitted WIP: device/phh/treble (incl. fingerprint phantom-HAL hide)
+Subject: [PATCH] LieppOS uncommitted WIP: device/phh/treble (incl. fingerprint
+ phantom-HAL hide)
 
 ---
- AndroidProducts.mk            |  8 ++--
- aex.mk                        |  4 --
- amyROM.mk                     |  1 -
- base.mk                       |  7 +++
- carbon.mk                     |  9 ----
- gapps-go.mk                   | 24 ----------
- gapps.mk                      | 52 ----------------------
- havoc.mk                      |  3 --
- lieppos_target_base.mk        | 61 +++++++++++++++++++++++++
- lineage.mk                    |  5 +++
- lineage_arm64_bgN4.mk         | 22 ---------
- lineage_arm64_bgNE.mk         | 24 ----------
- lineage_arm64_bvN4.mk         | 22 ---------
- lineage_arm64_bvNE.mk         | 52 ++--------------------
- lineage_arm64_bvNE_gapps.mk   |  6 +++
- lineage_arm64_bvNE_semi.mk    |  6 +++
- lineage_arm64_bvNE_vanilla.mk |  6 +++
- phh-on-boot.sh                | 84 ++++++++++++++++++++++++++++++++++-
- rw-system.sh                  | 32 ++++++++++++-
- vndk.rc                       | 11 +++--
- 20 files changed, 219 insertions(+), 220 deletions(-)
+ AndroidProducts.mk            |   8 +--
+ aex.mk                        |   4 --
+ amyROM.mk                     |   1 -
+ base.mk                       |   7 +++
+ carbon.mk                     |   9 ---
+ gapps-go.mk                   |  24 --------
+ gapps.mk                      |  52 -----------------
+ havoc.mk                      |   3 -
+ lieppos_target_base.mk        |  61 ++++++++++++++++++++
+ lineage.mk                    |   5 ++
+ lineage_arm64_bgN4.mk         |  22 --------
+ lineage_arm64_bgNE.mk         |  24 --------
+ lineage_arm64_bvN4.mk         |  22 --------
+ lineage_arm64_bvNE.mk         |  52 +----------------
+ lineage_arm64_bvNE_gapps.mk   |   6 ++
+ lineage_arm64_bvNE_semi.mk    |   6 ++
+ lineage_arm64_bvNE_vanilla.mk |   6 ++
+ phh-on-boot.sh                | 101 +++++++++++++++++++++++++++++++++-
+ rw-system.sh                  |  32 ++++++++++-
+ vndk.rc                       |  11 +++-
+ 20 files changed, 236 insertions(+), 220 deletions(-)
  delete mode 100644 aex.mk
  delete mode 100644 amyROM.mk
  delete mode 100644 carbon.mk
@@ -465,7 +466,7 @@ index 0000000..24f19f3
 +
 +$(call inherit-product, vendor/lieppos/flavors/vanilla.mk)
 diff --git a/phh-on-boot.sh b/phh-on-boot.sh
-index 1adb226..336c558 100644
+index 1adb226..7c63bee 100644
 --- a/phh-on-boot.sh
 +++ b/phh-on-boot.sh
 @@ -44,7 +44,10 @@ if [ ! -f /metadata/securize_disable ]; then
@@ -480,7 +481,7 @@ index 1adb226..336c558 100644
    resetprop_phh -n init.svc.flash_recovery stopped
  fi
  
-@@ -53,6 +56,82 @@ vndk="$(getprop persist.sys.vndk)"
+@@ -53,6 +56,99 @@ vndk="$(getprop persist.sys.vndk)"
  
  [ "$(getprop vold.decrypt)" = "trigger_restart_min_framework" ] && exit 0
  
@@ -540,6 +541,23 @@ index 1adb226..336c558 100644
 +    chmod 0660 /dev/fm
 +fi
 +
++# LieppOS Armor Mini 20 Pro: reveal the auxiliary (night/IR) camera.
++# Treble keeps the stock /vendor MTK camera HAL, which hides "aux" cameras from
++# any client package not listed in camera.aux.packagelist. The stock vendor
++# ships it as "nothing", hiding the 3rd (night) sensor from every app -- yet the
++# same HAL exposed all sensors on the OEM ROM, so the hardware is present and
++# only the system-side allowlist differs. Allow the GSI camera apps to see them.
++# Gated to the Armor Mini 20 patch profile + per-device toggle so no other
++# device is touched. camerahalserver is restarted so it re-reads the list.
++if [ "$(getprop persist.lieppos.device_patches)" = "armor_mini20" ] && \
++   [ "$(getprop persist.lieppos.armor_mini20.aux_cameras)" = "true" ]; then
++    aux_pkgs="org.lineageos.aperture,net.sourceforge.opencamera,com.android.camera2"
++    setprop camera.aux.packagelist "$aux_pkgs"
++    setprop vendor.camera.aux.packagelist "$aux_pkgs"
++    setprop ctl.restart camerahalserver
++    log -t phh-on-boot "Armor Mini 20: aux cameras allowed for $aux_pkgs"
++fi
++
 +# LieppOS: force ADB no-auth on user release-keys builds.
 +# Modern AOSP forces ro.adb.secure=1 into /system/build.prop for user builds and
 +# ignores WITH_ADB_INSECURE; PRODUCT_SYSTEM_EXT_PROPERTIES does not override
@@ -563,7 +581,7 @@ index 1adb226..336c558 100644
  # recover USB gadget if the UDC failed to bind during boot.
  # on some exynos devices (e.g. samsung galaxy M33), the dwc3 OTG state
  # machine starts the gadget before init has configured USB functions via
-@@ -63,6 +142,9 @@ udc_state="$(cat /config/usb_gadget/g1/UDC 2>/dev/null)"
+@@ -63,6 +159,9 @@ udc_state="$(cat /config/usb_gadget/g1/UDC 2>/dev/null)"
  if [ -z "$udc_state" ] || [ "$udc_state" = "none" ]; then
      usb_cfg="$(getprop persist.sys.usb.config)"
      if [ -n "$usb_cfg" ]; then

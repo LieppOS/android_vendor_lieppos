@@ -101,6 +101,14 @@ PRODUCT_PRODUCT_PROPERTIES += \
     persist.lieppos.armor29.touchscreen_grabber=false \
     persist.lieppos.armor29.nfc_routing_watchdog=false
 
+# Ulefone Armor Mini 20 Pro hardware-feature gates. Disabled at install; the
+# user opts in from LieppOS Settings -> Phone specific patches -> Ulefone
+# Armor Mini 20. Consumer: aux_cameras -> phh-on-boot.sh writes
+# camera.aux.packagelist so the stock MTK camera HAL stops hiding the night/IR
+# sensor from the GSI camera apps (only applied under the armor_mini20 profile).
+PRODUCT_PRODUCT_PROPERTIES += \
+    persist.lieppos.armor_mini20.aux_cameras=false
+
 # IMS / 4G calling feature gates are present but intentionally OFF by default.
 # Users can enable the matching controls from LieppOS Settings -> System ->
 # Patches -> IMS features when testing VoLTE/VT/WFC on a carrier/SIM.
