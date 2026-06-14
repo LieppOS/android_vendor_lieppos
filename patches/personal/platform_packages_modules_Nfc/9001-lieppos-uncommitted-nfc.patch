@@ -1,15 +1,15 @@
-From c53d45d49e38784c42d8c7721631a5d96b41f822 Mon Sep 17 00:00:00 2001
+From c84327cd491d3c3360baf53a464f93f62699a3e9 Mon Sep 17 00:00:00 2001
 From: LieppOS <lieppos@local>
-Date: Fri, 22 May 2026 02:16:11 +0300
+Date: Fri, 12 Jun 2026 01:09:20 +0300
 Subject: [PATCH] LieppOS uncommitted WIP: packages/modules/Nfc
 
-Change-Id: I26f9a8e426e3196581713d7326698e9127cae023
+Change-Id: I0800da29ba89643bf5ccc47817594ecf0855ff96
 ---
  NfcNci/AndroidManifest.xml                 |  3 +-
  NfcNci/nci/jni/NativeNfcManager.cpp        | 39 +++++++++++++++++-----
- NfcNci/src/com/android/nfc/NfcService.java |  3 +-
+ NfcNci/src/com/android/nfc/NfcService.java | 18 ++++++++--
  libnfc-nci/src/adaptation/NfcAdaptation.cc | 11 ++++--
- 4 files changed, 41 insertions(+), 15 deletions(-)
+ 4 files changed, 55 insertions(+), 16 deletions(-)
 
 diff --git a/NfcNci/AndroidManifest.xml b/NfcNci/AndroidManifest.xml
 index e6998dddb..91a455435 100755
@@ -125,19 +125,55 @@ index f2fa9a796..77a103f13 100644
        LOG(ERROR) << StringPrintf("%s: fail disable polling; error=0x%X",
                                   __func__, stat);
 diff --git a/NfcNci/src/com/android/nfc/NfcService.java b/NfcNci/src/com/android/nfc/NfcService.java
-index 3a9532965..a768f1b87 100644
+index 7bc7dde43..09c17be48 100644
 --- a/NfcNci/src/com/android/nfc/NfcService.java
 +++ b/NfcNci/src/com/android/nfc/NfcService.java
-@@ -302,7 +302,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback
- 
-     // Time to wait for routing to be applied before watchdog
+@@ -106,6 +106,7 @@ import android.os.Process;
+ import android.os.RemoteException;
+ import android.os.ResultReceiver;
+ import android.os.SystemClock;
++import android.os.SystemProperties;
+ import android.os.Trace;
+ import android.os.UserHandle;
+ import android.os.UserManager;
+@@ -304,6 +305,18 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback
      // goes off
--    static final int ROUTING_WATCHDOG_MS = 6000;
-+    static final int ROUTING_WATCHDOG_MS = 60000;
+     static final int ROUTING_WATCHDOG_MS = 6000;
  
++    // LieppOS: the Armor 29 Pro vendor NFC stack can take far longer than the
++    // stock 6s to apply routing; the short watchdog used to kill and restart
++    // the NFC service mid-apply. Opt-in extended timeout via the LieppOS
++    // device-patch gate (Settings -> LieppOS -> Phone specific patches).
++    static final int ROUTING_WATCHDOG_EXTENDED_MS = 60000;
++
++    static int routingWatchdogMs() {
++        return SystemProperties.getBoolean(
++                "persist.lieppos.armor29.nfc_routing_watchdog", false)
++                ? ROUTING_WATCHDOG_EXTENDED_MS : ROUTING_WATCHDOG_MS;
++    }
++
      // Default delay used for presence checks
      static final int DEFAULT_PRESENCE_CHECK_DELAY = 125;
-@@ -6663,4 +6663,3 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback
+ 
+@@ -2040,7 +2053,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback
+              * Implemented with a new thread (instead of a Handler or AsyncTask),
+              * because the UI Thread and AsyncTask thread-pools can also get hung
+              * when the NFC controller stops responding */
+-            WatchDogThread watchDog = new WatchDogThread("disableInternal", ROUTING_WATCHDOG_MS);
++            WatchDogThread watchDog = new WatchDogThread("disableInternal", routingWatchdogMs());
+             watchDog.start();
+ 
+             if (mIsWlcEnabled) {
+@@ -4835,7 +4848,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback
+                 return;
+             }
+ 
+-            WatchDogThread watchDog = new WatchDogThread("applyRouting", ROUTING_WATCHDOG_MS);
++            WatchDogThread watchDog = new WatchDogThread("applyRouting", routingWatchdogMs());
+             try {
+                 watchDog.start();
+                 // Compute new polling parameters
+@@ -6709,4 +6722,3 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback
          return result;
      }
  }
@@ -181,5 +217,5 @@ index 9f2717bf5..d186df9b3 100644
    void finalize() {
      if (mNfcDeathHal) {
 -- 
-2.50.1
+2.54.0
 
