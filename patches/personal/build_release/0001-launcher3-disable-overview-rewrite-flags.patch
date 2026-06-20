@@ -1,0 +1,47 @@
+From 65969f78fe30288df5d81f373e9093b6d4834466 Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Sat, 20 Jun 2026 16:42:32 +0300
+Subject: [PATCH] launcher3: disable Overview task rewrite flags on bp4a
+
+The Overview rewrite (enable_refactor_task_content_view +
+enable_refactor_task_thumbnail) renders blank task cards intermittently
+when a non-QuickStep third-party launcher is home and launcher3 serves
+fallback Recents (RecentsActivity): the recents model races the view and
+TaskThumbnailView binds with taskId=null -> Uninitialized. TaskContainer
+only uses the stable TaskThumbnailViewDeprecated renderer when BOTH flags
+are false, so disable both for the bp4a release config the build uses.
+
+Change-Id: I16ab2a37007400c73df6b443f85f0d204229314f
+---
+ .../enable_refactor_task_content_view_flag_values.textproto | 2 +-
+ .../enable_refactor_task_thumbnail_flag_values.textproto    | 6 ++++++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+ create mode 100644 aconfig/bp4a/com.android.launcher3/enable_refactor_task_thumbnail_flag_values.textproto
+
+diff --git a/aconfig/bp4a/com.android.launcher3/enable_refactor_task_content_view_flag_values.textproto b/aconfig/bp4a/com.android.launcher3/enable_refactor_task_content_view_flag_values.textproto
+index bab1895e3..9241e5094 100644
+--- a/aconfig/bp4a/com.android.launcher3/enable_refactor_task_content_view_flag_values.textproto
++++ b/aconfig/bp4a/com.android.launcher3/enable_refactor_task_content_view_flag_values.textproto
+@@ -1,6 +1,6 @@
+ flag_value {
+   package: "com.android.launcher3"
+   name: "enable_refactor_task_content_view"
+-  state: ENABLED
++  state: DISABLED
+   permission: READ_ONLY
+ }
+diff --git a/aconfig/bp4a/com.android.launcher3/enable_refactor_task_thumbnail_flag_values.textproto b/aconfig/bp4a/com.android.launcher3/enable_refactor_task_thumbnail_flag_values.textproto
+new file mode 100644
+index 000000000..2b7732acd
+--- /dev/null
++++ b/aconfig/bp4a/com.android.launcher3/enable_refactor_task_thumbnail_flag_values.textproto
+@@ -0,0 +1,6 @@
++flag_value {
++  package: "com.android.launcher3"
++  name: "enable_refactor_task_thumbnail"
++  state: DISABLED
++  permission: READ_ONLY
++}
+-- 
+2.54.0
+
