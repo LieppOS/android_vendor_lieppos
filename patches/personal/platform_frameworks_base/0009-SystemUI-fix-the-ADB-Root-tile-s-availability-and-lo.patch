@@ -1,0 +1,58 @@
+From 3e0cb7049d3f4497145e8e966bcc4d016a0e47ba Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Sat, 29 Aug 2026 14:06:12 +0300
+Subject: [PATCH] SystemUI: fix the ADB Root tile's availability and long-press
+ target
+
+Two problems with the ADB Root quick-settings tile.
+
+isAvailable() was never overridden, so the tile appeared on builds where adb
+root is not supported at all. It now checks ro.lieppos.adb_root_supported
+first and only falls back to ADBRootService.isSupported(): QS builds its tile
+list early in boot, and if adbroot_service has not registered yet the binder
+lookup returns null and isSupported() would hide the tile for the rest of the
+session.
+
+Long-press opened ACTION_APPLICATION_DEVELOPMENT_SETTINGS. Developer options
+has no ADB-root control on this ROM -- the toggle and the adbd/USB state live
+on the LieppOS ADB page -- so it now opens that instead.
+---
+ .../android/systemui/qs/tiles/AdbRootTile.java   | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbRootTile.java b/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbRootTile.java
+index df57bc1d1d72..bb0f73b95f06 100644
+--- a/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbRootTile.java
++++ b/packages/SystemUI/src/com/android/systemui/qs/tiles/AdbRootTile.java
+@@ -5,6 +5,7 @@ import android.content.Intent;
+ import android.database.ContentObserver;
+ import android.os.Handler;
+ import android.os.Looper;
++import android.os.SystemProperties;
+ import android.os.UserManager;
+ import android.provider.Settings;
+ import android.service.quicksettings.Tile;
+@@ -64,9 +65,22 @@ public class AdbRootTile extends QSTileImpl<BooleanState> {
+         return mContext.getString(R.string.quick_settings_adb_root_label);
+     }
+ 
++    @Override
++    public boolean isAvailable() {
++        // Prefer the product flag over isSupported(): QS builds its tile list
++        // early in boot, and if adbroot_service has not registered yet the
++        // binder lookup returns null, isSupported() reports false and the tile
++        // stays hidden for the rest of the session.
++        return SystemProperties.getBoolean("ro.lieppos.adb_root_supported", false)
++                || mADBRootService.isSupported();
++    }
++
+     @Override
+     public Intent getLongClickIntent() {
+-        return new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
++        // Developer options has no ADB-root control on this ROM; the LieppOS
++        // ADB page is where the toggle and the adbd/USB state actually live.
++        return new Intent("com.lieppos.settings.LIEPPOS_SETTINGS")
++                .addCategory(Intent.CATEGORY_DEFAULT);
+     }
+ 
+     @Override
