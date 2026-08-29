@@ -76,8 +76,21 @@ apply_patch_dir() {
                 N_APPLIED=$((N_APPLIED+1))
             elif patch -f -p1 --dry-run < "$patch" > /dev/null; then
                 git am "$patch" || true
-                patch -f -p1 < "$patch"
-                git add -u
+                # --no-backup-if-mismatch: a fuzzy apply otherwise drops
+                # <file>.orig next to the target, which `git add -A .` below
+                # would happily commit into the tree.
+                patch -f -p1 --no-backup-if-mismatch < "$patch"
+                # Belt and braces for older patch(1) versions and any .rej.
+                find . -name '*.orig' -o -name '*.rej' | while read -r junk; do
+                    rm -f "$junk"
+                done
+                # `git add -A .` (not `-u`): -u stages only already-tracked
+                # paths, so every file a patch CREATES stayed untracked and was
+                # dropped from the commit. 14 of the personal patches add new
+                # files (SuperFlashlightTile.java, LieppOSRefreshRateService.java,
+                # the ic_homepage_* drawables, ...); they landed on disk but not
+                # in git, so the next repo sync silently reverted them.
+                git add -A .
                 git am --continue
                 N_APPLIED=$((N_APPLIED+1))
             else
