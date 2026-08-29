@@ -39,6 +39,10 @@ apply_patch_dir() {
     fi
 
     for path in $(cd "$patch_dir"; echo *); do
+        # `echo *` yields the literal '*' for an empty dir; skip it rather than
+        # trying to cd into a directory called '*'.
+        [ -d "$patch_dir/$path" ] || continue
+
         tree="$(tr _ / <<<"$path" | sed -e 's;platform/;;g')"
         printf "\n| %s ###\n" "$path"
 
@@ -48,7 +52,16 @@ apply_patch_dir() {
         [ "$tree" == treble/app ] && tree=treble_app
         [ "$tree" == vendor/partner/gms ] && tree=vendor/partner_gms
 
-        pushd "$tree" > /dev/null
+        # A missing target tree must not abort the whole run. Under `set -e` an
+        # unguarded `pushd` on a renamed/removed manifest project killed every
+        # remaining patch directory, and update.sh swallowed the failure, so the
+        # tree silently built without most LieppOS patches.
+        if ! pushd "$tree" > /dev/null 2>&1; then
+            printf "${RED}### MISSING TREE: %s (skipping %s)${RST}\n" "$tree" "$path"
+            N_FAILED=$((N_FAILED+1))
+            FAILED_LIST="${FAILED_LIST}"$'\n'"  ${path} (tree '${tree}' not found)"
+            continue
+        fi
 
         for patch in "$patch_dir"/"$path"/*.patch; do
             [ -f "$patch" ] || continue
