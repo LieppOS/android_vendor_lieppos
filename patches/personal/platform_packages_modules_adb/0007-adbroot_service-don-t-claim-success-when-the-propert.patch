@@ -1,0 +1,65 @@
+From 213dbf15bfa8d8a83483e95c5a2d72e93765b4b8 Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Sat, 29 Aug 2026 14:03:16 +0300
+Subject: [PATCH 7/7] adbroot_service: don't claim success when the property
+ write failed
+
+setEnabled() wrote service.adb.root and ctl.restart adbd fire-and-forget.
+android::base::SetProperty returns false on an SELinux denial, so a policy
+regression on shell_prop or ctl_adbd_prop left the caller believing root had
+been granted: the QS tile latched to ON while adbd stayed unrooted, and the
+only visible symptom was `adb root` continuing to refuse.
+
+Check both writes, log which one failed, and roll the cached flag back so
+getEnabled() reports the truth. Deliberately still returns ok(): a
+service-specific error becomes an unchecked ServiceSpecificException in the
+Java wrapper and would take SystemUI down on a tile tap.
+---
+ root/adbroot_service.cpp | 34 ++++++++++++++++++++++++++++++----
+ 1 file changed, 30 insertions(+), 4 deletions(-)
+
+diff --git a/root/adbroot_service.cpp b/root/adbroot_service.cpp
+index 9b7aed91..4b61015f 100644
+--- a/root/adbroot_service.cpp
++++ b/root/adbroot_service.cpp
+@@ -141,10 +141,36 @@ ndk::ScopedAStatus ADBRootService::setEnabled(bool enabled) {
+     // Restart on every setEnabled(), even if the stored state did not change,
+     // so callers can use adbroot_service as the safe adbd restart path instead
+     // of trying to write protected init properties directly from app_process.
+-    SetProperty("service.adb.root", safeEnabled ? "1" : "0");
+-    SetProperty("ctl.restart", "adbd");
+-    LOG(INFO) << "LieppOS setEnabled: wrote service.adb.root="
+-              << (safeEnabled ? "1" : "0") << " and ctl.restart adbd";
++    //
++    // Both writes used to be fire-and-forget. android::base::SetProperty
++    // returns false on an SELinux denial or a malformed value, so a policy
++    // regression left callers reporting success while nothing happened: the QS
++    // tile would latch to ON with adbd still unrooted, and the only symptom was
++    // `adb root` continuing to refuse.
++    const char* value = safeEnabled ? "1" : "0";
++    bool ok = SetProperty("service.adb.root", value);
++    if (!ok) {
++        LOG(ERROR) << "LieppOS setEnabled: failed to set service.adb.root=" << value
++                   << " (SELinux denial on shell_prop?)";
++    } else if (!SetProperty("ctl.restart", "adbd")) {
++        LOG(ERROR) << "LieppOS setEnabled: failed to ctl.restart adbd"
++                   << " (SELinux denial on ctl_adbd_prop?)";
++        ok = false;
++    }
++
++    if (!ok) {
++        // Roll the cached flag back so getEnabled() -- and therefore the QS
++        // tile and the Settings page -- report the truth rather than claiming
++        // root was granted. Deliberately not returned as a service-specific
++        // error: the Java wrapper would turn that into an unchecked exception
++        // and take SystemUI down on a tile tap.
++        enabled_ = false;
++        WriteStringToFile("0", kStoragePath + kEnabled);
++        return ndk::ScopedAStatus::ok();
++    }
++
++    LOG(INFO) << "LieppOS setEnabled: wrote service.adb.root=" << value
++              << " and ctl.restart adbd";
+ 
+     return ndk::ScopedAStatus::ok();
+ }

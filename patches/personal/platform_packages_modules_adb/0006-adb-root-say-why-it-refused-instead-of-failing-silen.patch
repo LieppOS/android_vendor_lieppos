@@ -1,0 +1,58 @@
+From e6e9ce9bc14ea376bb20bc7554b04f24760b049a Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Sat, 29 Aug 2026 14:03:16 +0300
+Subject: [PATCH 6/7] adb root: say why it refused instead of failing silently
+
+Two failure paths gave the user nothing to work with.
+
+When adbroot_service cannot be reached the code logged to logcat and returned
+without writing to the client fd at all, so `adb root` printed nothing and
+exited 0 -- indistinguishable from success. It now says the service is not
+running and names the property to check.
+
+When adb root is simply not armed, the stock text says to enable it in
+"Settings -> System -> Developer options". LieppOS has no adb-root control
+there; the only ways in are the ADB Root quick-settings tile and
+Settings > LieppOS > ADB. Since the ADBRootService constructor disarms adb root
+on every boot, this is the message users hit after every single reboot, so
+pointing it at a screen that does not have the toggle was actively misleading.
+---
+ daemon/restart_service.cpp | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/daemon/restart_service.cpp b/daemon/restart_service.cpp
+index 453cdd34..23ec72a3 100644
+--- a/daemon/restart_service.cpp
++++ b/daemon/restart_service.cpp
+@@ -55,6 +55,12 @@ void restart_root_service(unique_fd fd) {
+             aidl::android::adbroot::IADBRootService::fromBinder(binder);
+     if (!service) {
+         LOG(ERROR) << "Failed to get adbroot_service interface";
++        // Tell the user something. Returning silently here made `adb root`
++        // print nothing at all and exit 0, which is indistinguishable from
++        // success and is the most confusing failure mode of the lot.
++        WriteFdExactly(fd.get(),
++                       "adb root unavailable: adbroot_service is not running.\n"
++                       "Check: adb shell getprop init.svc.adb_root\n");
+         return;
+     }
+ #endif
+@@ -70,8 +76,16 @@ void restart_root_service(unique_fd fd) {
+ #if defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)
+     }
+     if (!enabled) {
+-        WriteFdExactly(fd, "ADB Root access is disabled by system setting - "
+-                "enable in Settings -> System -> Developer options\n");
++        // LieppOS deliberately disarms adb root on every boot (see the
++        // ADBRootService constructor), so this is the normal state after a
++        // reboot rather than an error. Point at the controls that actually
++        // exist on this ROM -- the stock text sends people to Developer
++        // options, which has no adb-root toggle here.
++        WriteFdExactly(fd,
++                       "adb root is not armed on this device.\n"
++                       "Arm it with the \"ADB root\" quick-settings tile, or\n"
++                       "Settings > LieppOS > ADB > ADB root.\n"
++                       "LieppOS re-disarms adb root on every boot by design.\n");
+         return;
+     }
+ #endif
