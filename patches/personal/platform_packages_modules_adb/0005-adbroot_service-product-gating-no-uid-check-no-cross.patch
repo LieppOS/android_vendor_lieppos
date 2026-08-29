@@ -1,0 +1,134 @@
+From 7b2081cd7338e3febc46eb8ee874999ced23b6c0 Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Sat, 29 Aug 2026 14:03:16 +0300
+Subject: [PATCH 5/7] adbroot_service: product gating, no uid check, no
+ cross-boot persistence
+
+Final piece promoted out of the 9001 WIP patch.
+
+ - isSupported()/setEnabled() additionally accept ro.lieppos.adb_root_supported,
+   so the feature is reachable on a user build.
+ - The system-or-shell uid check is dropped: SystemUI on this ROM is a
+   platform_app (app uid range), not AID_SYSTEM, so the original gate rejected
+   the QS tile outright. SELinux is the real boundary here -- see
+   `allow platform_app adbroot_service:service_manager find` in
+   device/lineage/sepolicy.
+ - The constructor clears the stored flag, so adb root is disarmed on every
+   boot and USB always comes up in the safe non-root state.
+---
+ root/adbroot_service.cpp | 64 +++++++++++++++++++++++++---------------
+ 1 file changed, 40 insertions(+), 24 deletions(-)
+
+diff --git a/root/adbroot_service.cpp b/root/adbroot_service.cpp
+index 8d80d37d..9b7aed91 100644
+--- a/root/adbroot_service.cpp
++++ b/root/adbroot_service.cpp
+@@ -72,9 +72,7 @@ namespace android {
+ namespace adbroot {
+ 
+ using ::android::AutoMutex;
+-using ::android::base::ReadFileToString;
+ using ::android::base::SetProperty;
+-using ::android::base::Trim;
+ using ::android::base::WriteStringToFile;
+ 
+ static inline bool isAutomotive(uid_t uid) {
+@@ -84,10 +82,10 @@ static inline bool isAutomotive(uid_t uid) {
+ }
+ 
+ ADBRootService::ADBRootService() : enabled_(false) {
+-    std::string buf;
+-    if (ReadFileToString(kStoragePath + kEnabled, &buf)) {
+-        enabled_ = Trim(buf) == "1";
+-    }
++    // LieppOS: do not persist adb-root across boots. USB/ADB should always boot
++    // in the safe non-root state; the QS tile or `adb root` can explicitly
++    // request root after the device is online.
++    WriteStringToFile("0", kStoragePath + kEnabled);
+ }
+ 
+ void ADBRootService::Register() {
+@@ -101,12 +99,17 @@ void ADBRootService::Register() {
+ }
+ 
+ ndk::ScopedAStatus ADBRootService::isSupported(bool* _aidl_return) {
+-    uid_t uid = AIBinder_getCallingUid();
+-    if (uid != AID_SYSTEM && uid != AID_SHELL && !isAutomotive(uid)) {
+-        return SecurityException("Caller must be system or shell");
+-    }
++    // LieppOS: drop the uid check. SystemUI on this ROM is a platform_app
++    // (app uid range, e.g. 10149), not AID_SYSTEM, so the original
++    // system-or-shell gate rejected the QS tile entirely. SELinux
++    // (adbroot_service:service_manager find) is the real access gate;
++    // only callers in adbd / system_server / platform_app domains can
++    // reach this binder.
+ 
+     AutoMutex _l(lock_);
++    // LieppOS intentionally exposes ADB root on user builds when enabled by the
++    // product property. The daemon side keeps rooted adbd in the adbd SELinux
++    // domain on user builds so it does not crash by transitioning to su.
+     *_aidl_return = ANDROID_DEBUGGABLE || __android_log_is_debuggable() ||
+             ::android::base::GetBoolProperty(kLieppOSAdbRootSupported, false);
+     return ndk::ScopedAStatus::ok();
+@@ -114,34 +117,47 @@ ndk::ScopedAStatus ADBRootService::isSupported(bool* _aidl_return) {
+ 
+ ndk::ScopedAStatus ADBRootService::setEnabled(bool enabled) {
+     uid_t uid = AIBinder_getCallingUid();
+-    if (uid != AID_SYSTEM && !isAutomotive(uid)) {
+-        return SecurityException("Caller must be system");
+-    }
++    pid_t pid = AIBinder_getCallingPid();
++    LOG(INFO) << "LieppOS setEnabled(" << (enabled ? "true" : "false")
++              << ") from uid=" << uid << " pid=" << pid
++              << " current enabled_=" << enabled_;
++    // SELinux gates which domains can reach this binder; accept any
++    // caller that got through (system_server, adbd, SystemUI platform_app).
+ 
+     AutoMutex _l(lock_);
+ 
+-    if (enabled_ != enabled) {
+-        enabled_ = enabled;
+-        WriteStringToFile(std::to_string(enabled), kStoragePath + kEnabled);
++    const bool adbRootAllowed = ANDROID_DEBUGGABLE || __android_log_is_debuggable() ||
++            ::android::base::GetBoolProperty(kLieppOSAdbRootSupported, false);
++    const bool safeEnabled = adbRootAllowed && enabled;
++
++    LOG(INFO) << "LieppOS setEnabled: adbRootAllowed=" << adbRootAllowed
++              << " safeEnabled=" << safeEnabled;
+ 
+-        // Turning off adb root, restart adbd.
+-        if (!enabled) {
+-            SetProperty("service.adb.root", "0");
+-            SetProperty("ctl.restart", "adbd");
+-        }
++    if (enabled_ != safeEnabled) {
++        enabled_ = safeEnabled;
++        WriteStringToFile(std::to_string(safeEnabled), kStoragePath + kEnabled);
+     }
+ 
++    // Restart on every setEnabled(), even if the stored state did not change,
++    // so callers can use adbroot_service as the safe adbd restart path instead
++    // of trying to write protected init properties directly from app_process.
++    SetProperty("service.adb.root", safeEnabled ? "1" : "0");
++    SetProperty("ctl.restart", "adbd");
++    LOG(INFO) << "LieppOS setEnabled: wrote service.adb.root="
++              << (safeEnabled ? "1" : "0") << " and ctl.restart adbd";
++
+     return ndk::ScopedAStatus::ok();
+ }
+ 
+ ndk::ScopedAStatus ADBRootService::getEnabled(bool* _aidl_return) {
+     uid_t uid = AIBinder_getCallingUid();
+-    if (uid != AID_SYSTEM && uid != AID_SHELL && !isAutomotive(uid)) {
+-        return SecurityException("Caller must be system or shell");
+-    }
++    pid_t pid = AIBinder_getCallingPid();
++    // SELinux gates access; trust it.
+ 
+     AutoMutex _l(lock_);
+     *_aidl_return = enabled_;
++    LOG(INFO) << "LieppOS getEnabled() = " << enabled_
++              << " (caller uid=" << uid << " pid=" << pid << ")";
+     return ndk::ScopedAStatus::ok();
+ }
+ 

@@ -1,0 +1,62 @@
+From 7e6f101ae74dc77d644727234eecadc39ff78e1c Mon Sep 17 00:00:00 2001
+From: ArnoldasMk <arnoldas.kanobi@gmail.com>
+Date: Sat, 29 Aug 2026 14:03:16 +0300
+Subject: [PATCH 4/7] adbd: restart the daemon after adb root / adb unroot
+
+Also promoted out of the 9001 WIP patch.
+
+restart_root_service() sets service.adb.root and returns; nothing else in the
+tree restarts adbd. There is no `on property:service.adb.root` init trigger
+outside bootable/recovery, so without this _exit(0) the daemon keeps running
+with its old privileges and `adb root` reports "restarting adbd as root" while
+absolutely nothing happens -- the single most confusing way this can fail.
+
+Sleeping 1s before exiting lets the reply reach the client first.
+---
+ daemon/restart_service.cpp | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/daemon/restart_service.cpp b/daemon/restart_service.cpp
+index 8934db30..453cdd34 100644
+--- a/daemon/restart_service.cpp
++++ b/daemon/restart_service.cpp
+@@ -25,6 +25,8 @@
+ 
+ #include <unistd.h>
+ 
++#include <thread>
++
+ #include <android-base/logging.h>
+ #include <android-base/properties.h>
+ #include <android-base/stringprintf.h>
+@@ -32,6 +34,14 @@
+ 
+ #include "adb_io.h"
+ #include "adb_unique_fd.h"
++#include "sysdeps/chrono.h"
++
++static void restart_adbd_process() {
++#if defined(__ANDROID__)
++    std::this_thread::sleep_for(1s);
++    _exit(0);
++#endif
++}
+ 
+ void restart_root_service(unique_fd fd) {
+     if (getuid() == 0) {
+@@ -69,6 +79,7 @@ void restart_root_service(unique_fd fd) {
+     LOG(INFO) << "adbd restarting as root";
+     android::base::SetProperty("service.adb.root", "1");
+     WriteFdExactly(fd.get(), "restarting adbd as root\n");
++    restart_adbd_process();
+ }
+ 
+ void restart_unroot_service(unique_fd fd) {
+@@ -80,6 +91,7 @@ void restart_unroot_service(unique_fd fd) {
+     LOG(INFO) << "adbd restarting as nonroot";
+     android::base::SetProperty("service.adb.root", "0");
+     WriteFdExactly(fd.get(), "restarting adbd as non root\n");
++    restart_adbd_process();
+ }
+ 
+ void restart_tcp_service(unique_fd fd, int port) {
