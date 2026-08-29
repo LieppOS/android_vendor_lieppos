@@ -1,0 +1,36 @@
+From 396a7cedbf1d35a138b9dc4ff1f3da52a8a0a98b Mon Sep 17 00:00:00 2001
+From: LieppOS <lieppos@local>
+Date: Sat, 29 Aug 2026 14:06:12 +0300
+Subject: [PATCH] sepolicy: use binder_call(adbd, adbroot) instead of a bare
+ binder call
+
+adbd looks up adbroot_service and calls getEnabled() on it to decide whether
+`adb root` is armed. The rule granting that was hand-rolled as
+
+    allow adbd adbroot:binder call;
+
+which is only part of what binder_call() emits -- it omits the reciprocal
+`allow adbroot adbd:binder transfer` and `allow adbd adbroot:fd use`. It
+happens to work today purely because getEnabled() returns a bare boolean, so
+no binder reference or fd crosses the transaction. The first time that AIDL
+carries either, this would fail with an avc denial that points nowhere near
+the real cause.
+---
+ common/private/adbd.te | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/common/private/adbd.te b/common/private/adbd.te
+index e36902e..96479bb 100644
+--- a/common/private/adbd.te
++++ b/common/private/adbd.te
+@@ -1,4 +1,9 @@
+-allow adbd adbroot:binder call;
++# Use the macro rather than a bare `binder call`: binder_call() also grants the
++# reciprocal `allow adbroot adbd:binder transfer` and `allow adbd adbroot:fd
++# use`. The hand-rolled rule happened to work only because getEnabled() returns
++# a bare boolean; the first time the AIDL carries an fd or a binder reference it
++# would have failed with an avc denial that looks nothing like the real cause.
++binder_call(adbd, adbroot)
+ allow adbd adbroot_service:service_manager find;
+ 
+ # LieppOS: when service.adb.root=1 on a user build, adbd keeps running as
