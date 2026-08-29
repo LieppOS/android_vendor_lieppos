@@ -22,6 +22,12 @@ PRODUCT_PACKAGES += \
 PRODUCT_COPY_FILES += \
     vendor/lieppos/energy_tc2c/default-permissions-com.energy.tc2c.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/default-permissions/default-permissions-com.energy.tc2c.xml
 
+# LieppOS Settings runtime permissions. The privapp allowlist only covers
+# signature|privileged permissions; BLUETOOTH_CONNECT / READ_PHONE_STATE are
+# dangerous permissions that Extreme Power saving needs at runtime.
+PRODUCT_COPY_FILES += \
+    vendor/lieppos/default-permissions/default-permissions-com.lieppos.settings.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/default-permissions/default-permissions-com.lieppos.settings.xml
+
 # sysfs permission rules live in system/core/rootdir/ueventd.rc — chmod on sysfs
 # attributes is rejected by the kernel post-boot, so ueventd is the only working
 # path. The ueventd.rc.d/ subdir and init.rc chmod approaches do not work.

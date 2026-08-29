@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Runtime (dangerous) permission grants for the LieppOS Settings app.
+
+  The privapp allowlist in packages/apps/LieppOS/com.lieppos.settings.xml only
+  covers signature|privileged permissions. Dangerous permissions are NOT granted
+  by it, and a platform-signed system app does not get them automatically.
+
+  Extreme Power saving mode needs these at runtime:
+    BLUETOOTH_CONNECT - BluetoothAdapter.enable()/disable() require it since
+                        Android 12; without the grant the call throws
+                        SecurityException, which the controller catches and
+                        logs, so the Bluetooth action silently did nothing.
+    READ_PHONE_STATE  - TelephonyManager.isDataEnabled() / mobile-data snapshot.
+
+  The app shares android.uid.system, so in practice the grant may already be
+  present via another package in that shared UID. This file makes it explicit
+  rather than relying on that side effect.
+
+  fixed="true" keeps the user from revoking a permission the mode depends on.
+-->
+<exceptions>
+    <exception package="com.lieppos.settings">
+        <permission name="android.permission.BLUETOOTH_CONNECT" fixed="true"/>
+        <permission name="android.permission.READ_PHONE_STATE" fixed="true"/>
+    </exception>
+</exceptions>
